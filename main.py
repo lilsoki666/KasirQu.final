@@ -197,10 +197,7 @@ KV = r'''
 
     background_normal: ""
 
-    background_color:
-        (.12,.32,.78,1) \
-        if self.state == "normal" \
-        else (.08,.25,.64,1)
+    background_color: (.12,.32,.78,1) if self.state == "normal" else (.08,.25,.64,1)
 
     color: 1,1,1,1
 
@@ -215,10 +212,7 @@ KV = r'''
 
     background_normal: ""
 
-    background_color:
-        (.93,.95,.98,1) \
-        if self.state == "normal" \
-        else (.86,.90,.96,1)
+    background_color: (.93,.95,.98,1) if self.state == "normal" else (.86,.90,.96,1)
 
     color: (.10,.14,.20,1)
 
@@ -233,15 +227,9 @@ KV = r'''
 
     background_normal: ""
 
-    background_color:
-        (.12,.32,.78,1) \
-        if self.state == "down" \
-        else (1,1,1,1)
+    background_color: (.12,.32,.78,1) if self.state == "down" else (1,1,1,1)
 
-    color:
-        (.12,.32,.78,1) \
-        if self.state == "normal" \
-        else (1,1,1,1)
+    color: (.12,.32,.78,1) if self.state == "normal" else (1,1,1,1)
 
     font_size: "11sp"
 
@@ -2931,7 +2919,40 @@ class UniversalPOS(App):
                 error
             )
 
-            return BoxLayout()
+            # Jangan kembalikan layout kosong. Layout kosong membuat
+            # aplikasi terlihat seperti blank/black screen di Android.
+            error_box = BoxLayout(
+                orientation="vertical",
+                padding=dp(24),
+                spacing=dp(14)
+            )
+
+            error_box.add_widget(
+                Label(
+                    text="KasirQU",
+                    font_size="26sp",
+                    bold=True,
+                    size_hint_y=None,
+                    height=dp(54),
+                    color=(.07,.09,.13,1)
+                )
+            )
+
+            error_box.add_widget(
+                Label(
+                    text=(
+                        "Aplikasi gagal memuat UI.\n\n"
+                        f"{type(error).__name__}: {error}\n\n"
+                        "Detail error tersimpan di:\n"
+                        "KasirQU_error.log"
+                    ),
+                    halign="center",
+                    valign="middle",
+                    text_size=(dp(300), None)
+                )
+            )
+
+            return error_box
 
 
     # ========================================================
@@ -2950,13 +2971,22 @@ class UniversalPOS(App):
 
         try:
 
-            if self.startup_error is None:
+            if self.startup_error is not None:
+                return
 
-                pos = (
-                    self.root.ids.sm
-                    .get_screen("pos")
-                )
+            if not self.root:
+                raise RuntimeError("Root aplikasi tidak tersedia.")
 
+            if not hasattr(self.root, "ids"):
+                raise RuntimeError("Root aplikasi tidak memiliki ids.")
+
+            if "sm" not in self.root.ids:
+                raise RuntimeError("ScreenManager dengan id 'sm' tidak ditemukan.")
+
+            screen_manager = self.root.ids.sm
+            pos = screen_manager.get_screen("pos")
+
+            if hasattr(pos, "refresh_products"):
                 pos.refresh_products()
 
         except Exception as error:
@@ -2966,7 +2996,11 @@ class UniversalPOS(App):
                 error
             )
 
-        self.hide_android_loading_screen()
+            self.startup_error = error
+
+        finally:
+
+            self.hide_android_loading_screen()
 
 
     def hide_android_loading_screen(self):
@@ -3272,6 +3306,30 @@ class UniversalPOS(App):
                 [0] * 8192
             )
 
+            # Pertahankan ekstensi sesuai MIME asli agar loader Kivy
+            # tidak salah memilih decoder (mis. PNG disimpan sebagai JPG).
+            mime = None
+
+            try:
+                mime = resolver.getType(uri)
+                if mime:
+                    mime = str(mime)
+            except Exception:
+                mime = None
+
+            extension_map = {
+                "image/jpeg": ".jpg",
+                "image/jpg": ".jpg",
+                "image/png": ".png",
+                "image/webp": ".webp",
+                "image/gif": ".gif"
+            }
+
+            extension = extension_map.get(
+                mime,
+                ".jpg"
+            )
+
             filename = (
                 "product_"
                 +
@@ -3279,7 +3337,7 @@ class UniversalPOS(App):
                     "%Y%m%d%H%M%S%f"
                 )
                 +
-                ".jpg"
+                extension
             )
 
             target = os.path.join(

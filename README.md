@@ -1,13 +1,18 @@
 # KasirQU Android POS
 
-Startup-stability revision.
+Versi revisi startup-stability dan Android image picker.
 
-## Important fixes
-- Safe 512x512 icon and presplash assets.
-- No runtime permission request during application startup.
-- Loading screen is explicitly hidden after the first UI frame on Android.
-- Unused requests/charset_normalizer dependencies removed.
-- Android API 34 / Build Tools 34 configuration retained.
+## Perbaikan
+- Startup tidak lagi mengembalikan `BoxLayout` kosong ketika UI gagal dimuat.
+- Error startup ditulis ke `KasirQU_error.log` agar penyebab blank screen dapat dilacak.
+- Ekspresi KV yang rawan parser error dirapikan menjadi ekspresi satu baris.
+- Swipe antar halaman tetap menggunakan `SlideTransition`.
+- Pemilih foto Android menggunakan `ACTION_OPEN_DOCUMENT`.
+- Foto dari `content://` disalin ke penyimpanan internal aplikasi.
+- Ekstensi foto mengikuti MIME asli (JPG/PNG/WebP).
+- Database tetap berada di `App.user_data_dir`.
+- Icon disiapkan dalam ukuran 512x512.
+- Workflow GitHub Actions menyediakan `workflow_dispatch` dan pemeriksaan syntax Python.
 
 ## Build
-Use GitHub Actions -> Build KasirQU Android APK -> Run workflow.
+GitHub → Actions → Build KasirQU APK → Run workflow.
