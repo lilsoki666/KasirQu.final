@@ -1,283 +1,253 @@
-name: Build KasirQU Android APK
+name: Build KasirQU APK
 
 on:
+workflow_dispatch:
 
-  workflow_dispatch:
-
-  push:
-    branches:
-      - main
-
+push:
+branches:
+- main
 
 permissions:
-  contents: read
-
+contents: write
 
 jobs:
 
-  build:
+build:
 
-    name: Build KasirQU APK
+```
+name: Build Android APK
 
-    runs-on: ubuntu-22.04
+runs-on: ubuntu-22.04
 
+steps:
 
-    steps:
+  # ==========================================
+  # CHECKOUT
+  # ==========================================
 
-      # =========================================
-      # CHECKOUT
-      # =========================================
+  - name: Checkout repository
+    uses: actions/checkout@v4
 
-      - name: Checkout repository
-        uses: actions/checkout@v4
 
+  # ==========================================
+  # PYTHON
+  # ==========================================
 
-      # =========================================
-      # PYTHON
-      # =========================================
+  - name: Setup Python
+    uses: actions/setup-python@v5
+    with:
+      python-version: "3.11"
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
 
-        with:
-          python-version: "3.10"
+  # ==========================================
+  # JAVA
+  # ==========================================
 
+  - name: Setup Java 17
+    uses: actions/setup-java@v4
+    with:
+      distribution: temurin
+      java-version: "17"
 
-      # =========================================
-      # JAVA
-      # =========================================
 
-      - name: Setup Java 17
-        uses: actions/setup-java@v4
+  # ==========================================
+  # SYSTEM DEPENDENCIES
+  # ==========================================
 
-        with:
-          distribution: temurin
-          java-version: "17"
+  - name: Install system dependencies
+    run: |
 
+      sudo apt-get update
 
-      # =========================================
-      # LINUX DEPENDENCIES
-      # =========================================
+      sudo apt-get install -y \
+        git \
+        zip \
+        unzip \
+        openjdk-17-jdk \
+        python3-pip \
+        python3-venv \
+        autoconf \
+        automake \
+        libtool \
+        pkg-config \
+        zlib1g-dev \
+        libncurses5-dev \
+        libncursesw5-dev \
+        libtinfo5 \
+        cmake \
+        libffi-dev \
+        libssl-dev
 
-      - name: Install dependencies
-        run: |
 
-          sudo apt-get update
+  # ==========================================
+  # PYTHON BUILD TOOLS
+  # ==========================================
 
-          sudo apt-get install -y \
-            git \
-            zip \
-            unzip \
-            build-essential \
-            autoconf \
-            automake \
-            libtool \
-            pkg-config \
-            cmake \
-            gettext \
-            libffi-dev \
-            libssl-dev \
-            zlib1g-dev \
-            libncurses5-dev \
-            libncursesw5-dev
+  - name: Install Python build tools
+    run: |
 
+      python -m pip install --upgrade pip setuptools wheel
 
-      # =========================================
-      # PYTHON BUILD TOOLS
-      # =========================================
+      pip install \
+        buildozer==1.5.0 \
+        cython==0.29.36
 
-      - name: Install Buildozer
-        run: |
 
-          python -m pip install --upgrade pip
+  # ==========================================
+  # CHECK PROJECT
+  # ==========================================
 
-          python -m pip install \
-            setuptools \
-            wheel
+  - name: Check project files
+    run: |
 
-          python -m pip install \
-            buildozer==1.5.0
+      echo "======================================"
+      echo "PROJECT FILES"
+      echo "======================================"
 
-          python -m pip install \
-            cython==0.29.37
+      ls -la
 
+      echo ""
+      echo "======================================"
+      echo "ASSETS"
+      echo "======================================"
 
-      # =========================================
-      # VERIFY PROJECT
-      # =========================================
+      if [ -d "assets" ]; then
+        ls -lah assets
+      else
+        echo "WARNING: assets directory not found"
+      fi
 
-      - name: Verify project
-        run: |
+      echo ""
+      echo "======================================"
+      echo "MAIN.PY"
+      echo "======================================"
 
-          echo "===================================="
-          echo "PROJECT"
-          echo "===================================="
+      if [ -f "main.py" ]; then
+        python -m py_compile main.py
+        echo "main.py syntax OK"
+      else
+        echo "ERROR: main.py not found"
+        exit 1
+      fi
 
-          pwd
 
-          echo ""
-          echo "FILES"
+  # ==========================================
+  # CHECK REQUIREMENTS
+  # ==========================================
 
-          find . \
-            -maxdepth 2 \
-            -type f \
-            -not -path "./.git/*" \
-            | sort
+  - name: Check requirements
+    run: |
 
-          echo ""
-          echo "CHECK MAIN"
+      echo "======================================"
+      echo "requirements.txt"
+      echo "======================================"
 
-          test -f main.py
+      cat requirements.txt
 
-          echo "main.py OK"
+      echo ""
+      echo "Checking unsupported networking packages..."
 
+      if grep -Ei "requests|charset-normalizer|charset_normalizer|urllib3|certifi|idna" requirements.txt; then
+        echo ""
+        echo "ERROR: Unsupported networking dependency detected."
+        echo "Remove requests/charset-normalizer/urllib3/certifi/idna."
+        exit 1
+      fi
 
-          echo ""
-          echo "CHECK BUILDOZER"
+      echo ""
+      echo "Dependency check OK."
 
-          test -f buildozer.spec
 
-          echo "buildozer.spec OK"
+  # ==========================================
+  # CLEAN BUILDOZER
+  # ==========================================
 
+  - name: Clean Buildozer
+    run: |
 
-          echo ""
-          echo "CHECK ICON"
+      rm -rf .buildozer
+      rm -rf bin
 
-          test -f assets/icon.png
+      mkdir -p bin
 
-          echo "icon OK"
 
+  # ==========================================
+  # ACCEPT ANDROID LICENSES
+  # ==========================================
 
-          echo ""
-          echo "CHECK PRE-SPLASH"
+  - name: Prepare Android SDK licenses
+    run: |
 
-          test -f assets/presplash.png
+      mkdir -p "$HOME/.buildozer/android/platform/android-sdk/licenses"
 
-          echo "presplash OK"
+      yes | sdkmanager --licenses || true
 
 
-      # =========================================
-      # PYTHON SYNTAX
-      # =========================================
+  # ==========================================
+  # BUILD APK
+  # ==========================================
 
-      - name: Python syntax check
-        run: |
+  - name: Build APK
+    env:
+      BUILDOZER_WARN_ON_ROOT: "0"
+    run: |
 
-          python -m py_compile main.py
+      echo "======================================"
+      echo "BUILDING KASIRQU APK"
+      echo "======================================"
 
-          if [ -f database.py ]; then
-            python -m py_compile database.py
-          fi
+      buildozer -v android debug
 
-          echo "Python syntax check passed."
 
+  # ==========================================
+  # CHECK APK
+  # ==========================================
 
-      # =========================================
-      # BUILDOZER
-      # =========================================
+  - name: Find APK
+    run: |
 
-      - name: Check Buildozer
-        run: |
+      echo "======================================"
+      echo "SEARCHING APK"
+      echo "======================================"
 
-          buildozer --version
+      find . -type f -name "*.apk" -print
 
+      APK_COUNT=$(find . -type f -name "*.apk" | wc -l)
 
-      # =========================================
-      # CLEAN BUILD
-      # =========================================
+      if [ "$APK_COUNT" -eq 0 ]; then
+        echo "ERROR: APK was not generated."
+        exit 1
+      fi
 
-      - name: Clean build
-        run: |
+      echo "APK generated successfully."
 
-          rm -rf .buildozer
-          rm -rf bin
 
-          mkdir -p bin
+  # ==========================================
+  # UPLOAD APK
+  # ==========================================
 
+  - name: Upload APK artifact
+    uses: actions/upload-artifact@v4
+    with:
+      name: KasirQU-APK
+      path: |
+        bin/*.apk
+        .buildozer/android/platform/build-*/outputs/apk/**/*.apk
+      if-no-files-found: error
 
-      # =========================================
-      # BUILD APK
-      # =========================================
 
-      - name: Build Android APK
-        env:
+  # ==========================================
+  # CREATE RELEASE
+  # ==========================================
 
-          PIP_DISABLE_PIP_VERSION_CHECK: "1"
-          PYTHONUNBUFFERED: "1"
-
-        run: |
-
-          export PATH="$HOME/.local/bin:$PATH"
-
-          buildozer -v android debug
-
-
-      # =========================================
-      # VERIFY APK
-      # =========================================
-
-      - name: Verify APK
-        run: |
-
-          echo "===================================="
-          echo "APK RESULT"
-          echo "===================================="
-
-          ls -lah bin/
-
-          APK=$(find bin \
-            -maxdepth 1 \
-            -type f \
-            -name "*.apk" \
-            | head -n 1)
-
-          if [ -z "$APK" ]; then
-
-            echo "APK NOT FOUND"
-
-            exit 1
-
-          fi
-
-          echo "APK FOUND:"
-          echo "$APK"
-
-
-      # =========================================
-      # UPLOAD APK
-      # =========================================
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-
-        with:
-
-          name: KasirQU-v1.6-debug
-
-          path: bin/*.apk
-
-          if-no-files-found: error
-
-          retention-days: 14
-
-
-      # =========================================
-      # BUILD LOG
-      # =========================================
-
-      - name: Upload build logs
-        if: failure()
-
-        uses: actions/upload-artifact@v4
-
-        with:
-
-          name: KasirQU-build-logs
-
-          path: |
-            .buildozer/
-            buildozer.spec
-
-          if-no-files-found: ignore
-
-          retention-days: 7
+  - name: Upload APK to GitHub Release
+    if: success()
+    uses: softprops/action-gh-release@v2
+    with:
+      tag_name: "build-${{ github.run_number }}"
+      name: "KasirQU Build ${{ github.run_number }}"
+      files: |
+        bin/*.apk
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
