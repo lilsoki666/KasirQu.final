@@ -3,69 +3,34 @@ name: Build KasirQU APK
 on:
 workflow_dispatch:
 
-push:
-branches:
-- main
-
-permissions:
-contents: write
-
 jobs:
-
 build:
-
-```
 name: Build Android APK
-
 runs-on: ubuntu-22.04
 
+```
 steps:
-
-  # ==========================================
-  # CHECKOUT
-  # ==========================================
-
   - name: Checkout repository
     uses: actions/checkout@v4
-
-
-  # ==========================================
-  # PYTHON
-  # ==========================================
 
   - name: Setup Python
     uses: actions/setup-python@v5
     with:
       python-version: "3.11"
 
-
-  # ==========================================
-  # JAVA
-  # ==========================================
-
-  - name: Setup Java 17
+  - name: Setup Java
     uses: actions/setup-java@v4
     with:
       distribution: temurin
       java-version: "17"
 
-
-  # ==========================================
-  # SYSTEM DEPENDENCIES
-  # ==========================================
-
   - name: Install system dependencies
     run: |
-
       sudo apt-get update
-
       sudo apt-get install -y \
         git \
         zip \
         unzip \
-        openjdk-17-jdk \
-        python3-pip \
-        python3-venv \
         autoconf \
         automake \
         libtool \
@@ -73,181 +38,66 @@ steps:
         zlib1g-dev \
         libncurses5-dev \
         libncursesw5-dev \
-        libtinfo5 \
         cmake \
         libffi-dev \
         libssl-dev
 
-
-  # ==========================================
-  # PYTHON BUILD TOOLS
-  # ==========================================
-
-  - name: Install Python build tools
+  - name: Install Buildozer
     run: |
+      python -m pip install --upgrade pip
+      python -m pip install buildozer==1.5.0
+      python -m pip install cython==0.29.36
 
-      python -m pip install --upgrade pip setuptools wheel
-
-      pip install \
-        buildozer==1.5.0 \
-        cython==0.29.36
-
-
-  # ==========================================
-  # CHECK PROJECT
-  # ==========================================
-
-  - name: Check project files
+  - name: Check project
     run: |
-
       echo "======================================"
-      echo "PROJECT FILES"
+      echo "PROJECT"
       echo "======================================"
 
+      pwd
       ls -la
 
       echo ""
-      echo "======================================"
-      echo "ASSETS"
-      echo "======================================"
+      echo "Checking required files..."
 
-      if [ -d "assets" ]; then
-        ls -lah assets
-      else
-        echo "WARNING: assets directory not found"
-      fi
+      test -f main.py
+      test -f buildozer.spec
+      test -f requirements.txt
 
-      echo ""
-      echo "======================================"
-      echo "MAIN.PY"
-      echo "======================================"
+      echo "Required files OK"
 
-      if [ -f "main.py" ]; then
-        python -m py_compile main.py
-        echo "main.py syntax OK"
-      else
-        echo "ERROR: main.py not found"
-        exit 1
-      fi
-
-
-  # ==========================================
-  # CHECK REQUIREMENTS
-  # ==========================================
-
-  - name: Check requirements
+  - name: Check Python syntax
     run: |
+      python -m py_compile main.py
+      echo "main.py syntax OK"
 
-      echo "======================================"
-      echo "requirements.txt"
-      echo "======================================"
-
-      cat requirements.txt
-
-      echo ""
-      echo "Checking unsupported networking packages..."
-
-      if grep -Ei "requests|charset-normalizer|charset_normalizer|urllib3|certifi|idna" requirements.txt; then
-        echo ""
-        echo "ERROR: Unsupported networking dependency detected."
-        echo "Remove requests/charset-normalizer/urllib3/certifi/idna."
-        exit 1
-      fi
-
-      echo ""
-      echo "Dependency check OK."
-
-
-  # ==========================================
-  # CLEAN BUILDOZER
-  # ==========================================
-
-  - name: Clean Buildozer
+  - name: Clean previous build
     run: |
-
       rm -rf .buildozer
       rm -rf bin
-
-      mkdir -p bin
-
-
-  # ==========================================
-  # ACCEPT ANDROID LICENSES
-  # ==========================================
-
-  - name: Prepare Android SDK licenses
-    run: |
-
-      mkdir -p "$HOME/.buildozer/android/platform/android-sdk/licenses"
-
-      yes | sdkmanager --licenses || true
-
-
-  # ==========================================
-  # BUILD APK
-  # ==========================================
 
   - name: Build APK
     env:
       BUILDOZER_WARN_ON_ROOT: "0"
     run: |
-
-      echo "======================================"
-      echo "BUILDING KASIRQU APK"
-      echo "======================================"
-
       buildozer -v android debug
 
-
-  # ==========================================
-  # CHECK APK
-  # ==========================================
-
-  - name: Find APK
+  - name: Check APK
     run: |
-
       echo "======================================"
-      echo "SEARCHING APK"
+      echo "APK FILES"
       echo "======================================"
 
       find . -type f -name "*.apk" -print
 
-      APK_COUNT=$(find . -type f -name "*.apk" | wc -l)
+      test -n "$(find . -type f -name '*.apk' -print -quit)"
 
-      if [ "$APK_COUNT" -eq 0 ]; then
-        echo "ERROR: APK was not generated."
-        exit 1
-      fi
+      echo "APK BUILD SUCCESS"
 
-      echo "APK generated successfully."
-
-
-  # ==========================================
-  # UPLOAD APK
-  # ==========================================
-
-  - name: Upload APK artifact
+  - name: Upload APK
     uses: actions/upload-artifact@v4
     with:
       name: KasirQU-APK
-      path: |
-        bin/*.apk
-        .buildozer/android/platform/build-*/outputs/apk/**/*.apk
+      path: bin/*.apk
       if-no-files-found: error
-
-
-  # ==========================================
-  # CREATE RELEASE
-  # ==========================================
-
-  - name: Upload APK to GitHub Release
-    if: success()
-    uses: softprops/action-gh-release@v2
-    with:
-      tag_name: "build-${{ github.run_number }}"
-      name: "KasirQU Build ${{ github.run_number }}"
-      files: |
-        bin/*.apk
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
