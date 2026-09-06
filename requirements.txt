@@ -1,10 +1,4 @@
-# Instead of letting pip resolve charset_normalizer-3.5.1, pin to an older version
+kivy==2.3.1
 charset-normalizer==3.3.2
 requests==2.31.0
-idna==3.6
-urllib3==2.1.0
-certifi==2024.2.2
-
-# Keep your other requirements
-kivy==2.3.1
-python3
+# other dependencies with versions compatible with Python 3.10 or 3.11
