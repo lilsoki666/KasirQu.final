@@ -1,1 +1,266 @@
+name: Build KasirQU Android APK
 
+on:
+  workflow_dispatch:
+
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Android APK
+    runs-on: ubuntu-22.04
+
+    steps:
+
+      # ==========================================
+      # CHECKOUT
+      # ==========================================
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+
+      # ==========================================
+      # PYTHON
+      # ==========================================
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+
+      # ==========================================
+      # JAVA
+      # ==========================================
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+
+      # ==========================================
+      # SYSTEM DEPENDENCIES
+      # ==========================================
+
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update
+
+          sudo apt-get install -y \
+            git \
+            zip \
+            unzip \
+            build-essential \
+            autoconf \
+            automake \
+            libtool \
+            pkg-config \
+            cmake \
+            gettext \
+            libffi-dev \
+            libssl-dev \
+            zlib1g-dev \
+            libncurses5-dev \
+            libncursesw5-dev
+
+
+      # ==========================================
+      # PYTHON BUILD TOOLS
+      # ==========================================
+
+      - name: Install Buildozer
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install setuptools wheel
+          python -m pip install buildozer==1.5.0
+          python -m pip install cython==0.29.37
+
+
+      # ==========================================
+      # CHECK PROJECT
+      # ==========================================
+
+      - name: Check Project Files
+        run: |
+          echo "======================================"
+          echo "PROJECT DIRECTORY"
+          echo "======================================"
+
+          pwd
+
+          echo ""
+          echo "ROOT FILES:"
+          ls -lah
+
+          echo ""
+          echo "WORKFLOW:"
+          ls -lah .github/workflows/
+
+          echo ""
+          echo "ASSETS:"
+          ls -lah assets/
+
+          echo ""
+          echo "======================================"
+          echo "CHECK BUILD FILES"
+          echo "======================================"
+
+          test -f main.py
+          test -f buildozer.spec
+
+          echo "main.py      : OK"
+          echo "buildozer    : OK"
+
+
+      # ==========================================
+      # PYTHON SYNTAX CHECK
+      # ==========================================
+
+      - name: Check Python Syntax
+        run: |
+          echo "Checking Python syntax..."
+
+          python -m py_compile main.py
+
+          if [ -f database.py ]; then
+            python -m py_compile database.py
+          fi
+
+          echo "Python syntax OK."
+
+
+      # ==========================================
+      # CHECK BUILDOZER
+      # ==========================================
+
+      - name: Check Buildozer Version
+        run: |
+          buildozer --version
+
+
+      # ==========================================
+      # CLEAN PREVIOUS BUILD
+      # ==========================================
+
+      - name: Clean Build Directory
+        run: |
+          rm -rf .buildozer
+          rm -rf bin
+
+          mkdir -p bin
+
+
+      # ==========================================
+      # ACCEPT AND PREPARE ANDROID SDK
+      # ==========================================
+
+      - name: Prepare Android Build Environment
+        run: |
+          mkdir -p "$HOME/.buildozer"
+
+          echo "Android build environment prepared."
+
+
+      # ==========================================
+      # BUILD APK
+      # ==========================================
+
+      - name: Build APK
+        env:
+          PIP_DISABLE_PIP_VERSION_CHECK: "1"
+          PYTHONUNBUFFERED: "1"
+
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+
+          echo "======================================"
+          echo "START BUILDOZER BUILD"
+          echo "======================================"
+
+          buildozer -v android debug
+
+
+      # ==========================================
+      # CHECK APK
+      # ==========================================
+
+      - name: Check APK Result
+        run: |
+          echo "======================================"
+          echo "APK BUILD RESULT"
+          echo "======================================"
+
+          echo ""
+          echo "BIN DIRECTORY:"
+          ls -lah bin/
+
+          echo ""
+          echo "SEARCH APK:"
+
+          find bin \
+            -maxdepth 1 \
+            -type f \
+            -name "*.apk" \
+            -print
+
+          echo ""
+          echo "VERIFY APK"
+
+          APK_COUNT=$(find bin \
+            -maxdepth 1 \
+            -type f \
+            -name "*.apk" \
+            | wc -l)
+
+          if [ "$APK_COUNT" -eq 0 ]; then
+            echo "ERROR: APK NOT FOUND"
+            exit 1
+          fi
+
+          echo "APK FOUND: $APK_COUNT"
+
+
+      # ==========================================
+      # UPLOAD APK
+      # ==========================================
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+
+        with:
+          name: KasirQU-debug-apk
+
+          path: bin/*.apk
+
+          if-no-files-found: error
+
+          retention-days: 14
+
+
+      # ==========================================
+      # UPLOAD BUILD LOG
+      # ==========================================
+
+      - name: Upload Build Logs
+        if: failure()
+
+        uses: actions/upload-artifact@v4
+
+        with:
+          name: KasirQU-build-logs
+
+          path: |
+            .buildozer/
+            buildozer.spec
+
+          if-no-files-found: ignore
+
+          retention-days: 7
