@@ -11,7 +11,7 @@ source.exclude_dirs = .git,.github,.buildozer,bin,__pycache__,docs
 
 version = 1.5.0
 
-requirements = python3,kivy==2.3.1,requests,charset_normalizer==3.3.2
+requirements = python3,kivy==2.3.1
 
 orientation = portrait
 fullscreen = 0
@@ -28,7 +28,7 @@ android.archs = arm64-v8a
 android.debug_artifact = apk
 android.release_artifact = apk
 
-android.permissions = BLUETOOTH,BLUETOOTH_ADMIN,BLUETOOTH_CONNECT,BLUETOOTH_SCAN,ACCESS_FINE_LOCATION,READ_MEDIA_IMAGES
+android.permissions = BLUETOOTH,BLUETOOTH_ADMIN,BLUETOOTH_CONNECT,BLUETOOTH_SCAN,READ_MEDIA_IMAGES
 
 android.accept_sdk_license = True
 

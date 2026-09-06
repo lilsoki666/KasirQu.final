@@ -725,18 +725,31 @@ class UniversalPOS(App):
     last_receipt=None
 
     def build(self):
-        self.title="UniversalPOS"
+        self.title="KasirQU"
         self.user_data_dir=os.path.expanduser(self.user_data_dir)
         os.makedirs(self.user_data_dir,exist_ok=True)
         self.images_dir=os.path.join(self.user_data_dir,"products")
         os.makedirs(self.images_dir,exist_ok=True)
+        # Keep Android startup minimal: do not request runtime permissions here.
+        # Bluetooth/storage permissions are requested only when their features are used.
         self.db=DB(os.path.join(self.user_data_dir,"UniversalPOS.db"))
         self.tax_percent=self.db.setting("tax_percent") or "0"
-        self.request_android_permissions()
         return Builder.load_string(KV)
 
     def on_start(self):
-        Clock.schedule_once(lambda *_: self.root.ids.sm.get_screen("pos").refresh_products(), .2)
+        Clock.schedule_once(self._finish_startup, 0.15)
+
+    def _finish_startup(self, *_):
+        try:
+            self.root.ids.sm.get_screen("pos").refresh_products()
+        except Exception as e:
+            print("Initial UI error:", repr(e))
+        try:
+            if platform == "android":
+                from android import loadingscreen
+                loadingscreen.hide_loading_screen()
+        except Exception as e:
+            print("Loading screen hide:", repr(e))
 
     def request_android_permissions(self):
         if platform != "android":
