@@ -8,7 +8,7 @@ permissions:
 
 jobs:
   build:
-    name: Build Android APK
+    name: Build KasirQU Android APK
     runs-on: ubuntu-22.04
 
     steps:
@@ -52,41 +52,57 @@ jobs:
           python -m pip install buildozer==1.5.0
           python -m pip install cython==0.29.36
 
-      - name: Check project files
+      - name: Verify project
         run: |
           echo "======================================"
-          echo "CHECK PROJECT"
+          echo "KASIRQU PROJECT CHECK"
           echo "======================================"
-
-          pwd
-          ls -la
 
           test -f main.py
           test -f buildozer.spec
           test -f requirements.txt
 
-          echo "All required files found."
+          echo "main.py       : OK"
+          echo "buildozer.spec: OK"
+          echo "requirements  : OK"
+
+          echo ""
+          echo "Assets:"
+
+          test -f assets/icon.png
+          test -f assets/presplash.png
+
+          echo "icon.png      : OK"
+          echo "presplash.png : OK"
 
       - name: Check Python syntax
         run: |
           python -m py_compile main.py
           echo "main.py syntax OK"
 
-      - name: Check assets
+      - name: Show build configuration
         run: |
-          if [ -d "assets" ]; then
-            echo "Assets directory found."
-            ls -lah assets
-          else
-            echo "WARNING: assets directory not found."
-          fi
+          echo "======================================"
+          echo "BUILDOZER SPEC"
+          echo "======================================"
 
-      - name: Clean previous Buildozer files
+          cat buildozer.spec
+
+          echo ""
+          echo "======================================"
+          echo "REQUIREMENTS"
+          echo "======================================"
+
+          cat requirements.txt
+
+      - name: Clean Buildozer
         run: |
           rm -rf .buildozer
           rm -rf bin
 
-          echo "Buildozer cache cleaned."
+          mkdir -p bin
+
+          echo "Build directory cleaned."
 
       - name: Build APK
         env:
@@ -98,7 +114,7 @@ jobs:
 
           buildozer -v android debug
 
-      - name: Find generated APK
+      - name: Locate APK
         run: |
           echo "======================================"
           echo "SEARCHING APK"
@@ -106,20 +122,22 @@ jobs:
 
           find . -type f -name "*.apk" -print
 
-          APK=$(find . -type f -name "*.apk" | head -n 1)
+          APK="$(find . -type f -name '*.apk' | head -n 1)"
 
           if [ -z "$APK" ]; then
             echo "ERROR: APK was not generated."
             exit 1
           fi
 
+          echo ""
           echo "APK FOUND:"
           echo "$APK"
+
+          cp "$APK" bin/KasirQU-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: KasirQU-APK
-          path: |
-            bin/*.apk
+          path: bin/KasirQU-debug.apk
           if-no-files-found: error
