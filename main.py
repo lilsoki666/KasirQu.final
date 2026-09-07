@@ -3,13 +3,14 @@ import csv
 import shutil
 import sqlite3
 import traceback
+
 from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP
 
 from kivy.app import App
-from kivy.clock import Clock
+from kivy.lang import Builder
 from kivy.metrics import dp
-from kivy.properties import StringProperty
+from kivy.properties import StringProperty, NumericProperty
 from kivy.uix.screenmanager import Screen, ScreenManager, SlideTransition
 from kivy.uix.popup import Popup
 from kivy.uix.boxlayout import BoxLayout
@@ -21,128 +22,936 @@ from kivy.uix.textinput import TextInput
 from kivy.uix.spinner import Spinner
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.widget import Widget
+from kivy.uix.filechooser import FileChooserListView
 from kivy.graphics import Color, RoundedRectangle
+from kivy.clock import Clock
 from kivy.utils import platform
 
+
+# ============================================================
+# KASIRQU
+# FINAL UI + IMAGE FIX
+# ============================================================
 
 APP_NAME = "KasirQU"
 DB_NAME = "KasirQU.db"
 
+PRIMARY = (0.12, 0.32, 0.78, 1)
+PRIMARY_DARK = (0.08, 0.24, 0.62, 1)
+
+BG = (0.95, 0.97, 0.99, 1)
+WHITE = (1, 1, 1, 1)
+TEXT = (0.08, 0.11, 0.16, 1)
+MUTED = (0.40, 0.44, 0.51, 1)
+BORDER = (0.88, 0.90, 0.94, 1)
+SUCCESS = (0.08, 0.55, 0.30, 1)
+DANGER = (0.78, 0.18, 0.18, 1)
+
 
 # ============================================================
-# HELPERS
+# UTILITIES
 # ============================================================
 
 def money(value):
     try:
-        value = Decimal(str(value)).quantize(
-            Decimal("1"), rounding=ROUND_HALF_UP
+        number = Decimal(str(value)).quantize(
+            Decimal("1"),
+            rounding=ROUND_HALF_UP
         )
-        return "Rp {:,}".format(value).replace(",", ".")
+
+        return "Rp {:,}".format(number).replace(",", ".")
+
     except Exception:
         return "Rp 0"
 
 
-def number(value, default=0.0):
+def safe_float(value, default=0):
     try:
+        if value is None:
+            return default
+
+        value = str(value).strip()
+
+        if not value:
+            return default
+
         return float(value)
+
     except Exception:
         return default
 
 
-def text_label(text="", size=14, color=(0.08, 0.09, 0.12, 1),
-               bold=False, halign="left", valign="middle", **kwargs):
-    label = Label(
-        text=str(text),
-        font_size=f"{size}sp",
-        color=color,
-        bold=bold,
-        halign=halign,
-        valign=valign,
-        **kwargs
-    )
-    label.bind(size=lambda w, s: setattr(w, "text_size", s))
-    return label
+def safe_text(value):
+    try:
+        return str(value or "")
+    except Exception:
+        return ""
 
 
-def make_button(text, primary=False, height=46, **kwargs):
-    btn = Button(
-        text=text,
-        size_hint_y=None,
-        height=dp(height),
-        background_normal="",
-        background_down="",
-        background_color=(
-            (0.10, 0.36, 0.86, 1)
-            if primary else
-            (0.92, 0.94, 0.97, 1)
-        ),
-        color=(1, 1, 1, 1) if primary else (0.10, 0.13, 0.18, 1),
-        bold=True,
-        **kwargs
-    )
-    return btn
-
+# ============================================================
+# CARD
+# ============================================================
 
 class Card(BoxLayout):
-    """Kartu UI sederhana. Tidak memakai ButtonBehavior."""
+
+    radius = NumericProperty(dp(14))
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+
         with self.canvas.before:
-            Color(1, 1, 1, 1)
-            self.rect = RoundedRectangle(
+            Color(*WHITE)
+
+            self._rect = RoundedRectangle(
                 pos=self.pos,
                 size=self.size,
-                radius=[dp(14)]
+                radius=[self.radius]
             )
-        self.bind(pos=self._update_rect, size=self._update_rect)
+
+        self.bind(
+            pos=self._update_rect,
+            size=self._update_rect
+        )
 
     def _update_rect(self, *_):
-        self.rect.pos = self.pos
-        self.rect.size = self.size
+        self._rect.pos = self.pos
+        self._rect.size = self.size
 
+
+# ============================================================
+# MODERN BUTTON
+# ============================================================
+
+class ModernButton(Button):
+
+    def __init__(self, primary=False, **kwargs):
+
+        self.primary = primary
+
+        super().__init__(**kwargs)
+
+        self.background_normal = ""
+        self.background_down = ""
+
+        self.background_color = (
+            PRIMARY if primary else WHITE
+        )
+
+        self.color = (
+            WHITE if primary else TEXT
+        )
+
+        self.bold = True
+
+        self.size_hint_y = None
+
+        if "height" not in kwargs:
+            self.height = dp(44)
+
+
+# ============================================================
+# SWIPE MANAGER
+# ============================================================
 
 class SwipeManager(ScreenManager):
-    """Swipe horizontal tanpa ButtonBehavior."""
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._touch_start = None
 
     def on_touch_down(self, touch):
+
         self._touch_start = touch.pos
+
         return super().on_touch_down(touch)
 
     def on_touch_up(self, touch):
+
         start = self._touch_start
+
         result = super().on_touch_up(touch)
 
         if start is not None:
+
             dx = touch.x - start[0]
             dy = touch.y - start[1]
-            if abs(dx) > dp(70) and abs(dx) > abs(dy) * 1.25:
-                self.swipe(-1 if dx > 0 else 1)
+
+            if (
+                abs(dx) > dp(70)
+                and
+                abs(dx) > abs(dy) * 1.3
+            ):
+
+                self.swipe(
+                    -1 if dx > 0 else 1
+                )
 
         self._touch_start = None
+
         return result
 
     def swipe(self, delta):
+
         names = list(self.screen_names)
+
         if self.current not in names:
             return
 
         index = names.index(self.current)
+
         target = index + delta
 
         if target < 0 or target >= len(names):
             return
 
         self.transition = SlideTransition(
-            direction="right" if delta < 0 else "left",
-            duration=0.18
+            direction=(
+                "right"
+                if delta < 0
+                else "left"
+            ),
+            duration=.20
         )
+
         self.current = names[target]
+
+
+# ============================================================
+# KV
+# ============================================================
+
+KV = r'''
+#:import dp kivy.metrics.dp
+
+
+<PrimaryButton@Button>:
+
+    background_normal: ""
+
+    background_down: ""
+
+    background_color:
+        (.08,.24,.62,1) if self.state == "down" else (.12,.32,.78,1)
+
+    color: 1,1,1,1
+
+    bold: True
+
+    font_size: "14sp"
+
+    size_hint_y: None
+
+    height: dp(46)
+
+
+<SoftButton@Button>:
+
+    background_normal: ""
+
+    background_down: ""
+
+    background_color:
+        (.88,.91,.96,1) if self.state == "down" else (1,1,1,1)
+
+    color: (.08,.11,.16,1)
+
+    bold: True
+
+    font_size: "13sp"
+
+    size_hint_y: None
+
+    height: dp(44)
+
+
+<ScreenTitle@Label>:
+
+    color: (.07,.09,.13,1)
+
+    font_size: "22sp"
+
+    bold: True
+
+    halign: "left"
+
+    valign: "middle"
+
+    text_size: self.size
+
+
+<NavButton@Button>:
+
+    background_normal: ""
+
+    background_down: ""
+
+    background_color:
+        (.12,.32,.78,1) if self.state == "down" else (1,1,1,1)
+
+    color:
+        (1,1,1,1) if self.state == "down" else (.25,.29,.36,1)
+
+    font_size: "11sp"
+
+    bold: True
+
+    halign: "center"
+
+    valign: "middle"
+
+    text_size: self.size
+
+
+<POSScreen>:
+
+    BoxLayout:
+
+        orientation: "vertical"
+
+        padding: dp(12)
+
+        spacing: dp(10)
+
+
+        canvas.before:
+
+            Color:
+
+                rgba: (.95,.97,.99,1)
+
+            Rectangle:
+
+                pos: self.pos
+
+                size: self.size
+
+
+        BoxLayout:
+
+            size_hint_y: None
+
+            height: dp(50)
+
+            spacing: dp(8)
+
+
+            Label:
+
+                text: "KasirQU"
+
+                color: (.07,.09,.13,1)
+
+                font_size: "23sp"
+
+                bold: True
+
+                size_hint_x: .34
+
+                halign: "left"
+
+                valign: "middle"
+
+                text_size: self.size
+
+
+            TextInput:
+
+                id: search
+
+                hint_text: "Cari produk atau SKU..."
+
+                multiline: False
+
+                padding: [dp(12), dp(11)]
+
+                background_normal: ""
+
+                background_color: (1,1,1,1)
+
+                foreground_color: (.08,.11,.16,1)
+
+                cursor_color: (.12,.32,.78,1)
+
+                on_text:
+
+                    root.refresh_products(self.text)
+
+
+        Label:
+
+            text: "Pilih Produk"
+
+            size_hint_y: None
+
+            height: dp(27)
+
+            color: (.40,.44,.51,1)
+
+            font_size: "14sp"
+
+            bold: True
+
+            halign: "left"
+
+            text_size: self.size
+
+
+        ScrollView:
+
+            do_scroll_x: False
+
+            bar_width: dp(3)
+
+
+            GridLayout:
+
+                id: products
+
+                cols: 2
+
+                spacing: dp(10)
+
+                padding: dp(2)
+
+                size_hint_y: None
+
+                height: self.minimum_height
+
+
+        Card:
+
+            orientation: "horizontal"
+
+            size_hint_y: None
+
+            height: dp(70)
+
+            padding: dp(9)
+
+            spacing: dp(8)
+
+
+            Label:
+
+                id: cart_count
+
+                text: "0 item"
+
+                color: (.08,.11,.16,1)
+
+                bold: True
+
+                size_hint_x: .25
+
+                halign: "left"
+
+                valign: "middle"
+
+                text_size: self.size
+
+
+            Label:
+
+                id: cart_total
+
+                text: "Rp 0"
+
+                color: (.12,.32,.78,1)
+
+                font_size: "18sp"
+
+                bold: True
+
+                size_hint_x: .42
+
+                halign: "right"
+
+                valign: "middle"
+
+                text_size: self.size
+
+
+            SoftButton:
+
+                text: "KERANJANG"
+
+                size_hint_x: .33
+
+                on_release:
+
+                    root.open_cart_popup()
+
+
+<ProductScreen>:
+
+    BoxLayout:
+
+        orientation: "vertical"
+
+        padding: dp(12)
+
+        spacing: dp(10)
+
+
+        canvas.before:
+
+            Color:
+
+                rgba: (.95,.97,.99,1)
+
+            Rectangle:
+
+                pos: self.pos
+
+                size: self.size
+
+
+        BoxLayout:
+
+            size_hint_y: None
+
+            height: dp(52)
+
+            spacing: dp(10)
+
+
+            ScreenTitle:
+
+                text: "Produk"
+
+                size_hint_x: .70
+
+
+            PrimaryButton:
+
+                text: "+ Produk"
+
+                size_hint_x: .30
+
+                on_release:
+
+                    root.open_editor()
+
+
+        TextInput:
+
+            id: search
+
+            hint_text: "Cari nama, SKU, kategori..."
+
+            multiline: False
+
+            size_hint_y: None
+
+            height: dp(44)
+
+            padding: [dp(12), dp(10)]
+
+            background_normal: ""
+
+            background_color: (1,1,1,1)
+
+            foreground_color: (.08,.11,.16,1)
+
+            on_text:
+
+                root.refresh(self.text)
+
+
+        ScrollView:
+
+            do_scroll_x: False
+
+            bar_width: dp(3)
+
+
+            GridLayout:
+
+                id: list
+
+                cols: 1
+
+                spacing: dp(8)
+
+                padding: dp(2)
+
+                size_hint_y: None
+
+                height: self.minimum_height
+
+
+<TransactionScreen>:
+
+    BoxLayout:
+
+        orientation: "vertical"
+
+        padding: dp(12)
+
+        spacing: dp(10)
+
+
+        canvas.before:
+
+            Color:
+
+                rgba: (.95,.97,.99,1)
+
+            Rectangle:
+
+                pos: self.pos
+
+                size: self.size
+
+
+        ScreenTitle:
+
+            text: "Riwayat Transaksi"
+
+            size_hint_y: None
+
+            height: dp(52)
+
+
+        ScrollView:
+
+            do_scroll_x: False
+
+            bar_width: dp(3)
+
+
+            GridLayout:
+
+                id: list
+
+                cols: 1
+
+                spacing: dp(8)
+
+                padding: dp(2)
+
+                size_hint_y: None
+
+                height: self.minimum_height
+
+
+<ReportScreen>:
+
+    BoxLayout:
+
+        orientation: "vertical"
+
+        padding: dp(12)
+
+        spacing: dp(10)
+
+
+        canvas.before:
+
+            Color:
+
+                rgba: (.95,.97,.99,1)
+
+            Rectangle:
+
+                pos: self.pos
+
+                size: self.size
+
+
+        ScreenTitle:
+
+            text: "Laporan"
+
+            size_hint_y: None
+
+            height: dp(52)
+
+
+        Card:
+
+            orientation: "vertical"
+
+            padding: dp(18)
+
+            size_hint_y: None
+
+            height: dp(205)
+
+
+            Label:
+
+                id: summary
+
+                text: "Memuat..."
+
+                color: (.08,.11,.16,1)
+
+                font_size: "16sp"
+
+                bold: True
+
+                halign: "left"
+
+                valign: "top"
+
+                text_size: self.size
+
+
+        PrimaryButton:
+
+            text: "EXPORT CSV"
+
+            on_release:
+
+                root.export_csv()
+
+
+        Widget:
+
+
+<SettingsScreen>:
+
+    BoxLayout:
+
+        orientation: "vertical"
+
+        padding: dp(12)
+
+        spacing: dp(10)
+
+
+        canvas.before:
+
+            Color:
+
+                rgba: (.95,.97,.99,1)
+
+            Rectangle:
+
+                pos: self.pos
+
+                size: self.size
+
+
+        ScreenTitle:
+
+            text: "Pengaturan"
+
+            size_hint_y: None
+
+            height: dp(52)
+
+
+        TextInput:
+
+            id: store
+
+            hint_text: "Nama usaha"
+
+            multiline: False
+
+            size_hint_y: None
+
+            height: dp(44)
+
+            padding: [dp(12),dp(10)]
+
+            background_normal: ""
+
+            background_color: (1,1,1,1)
+
+
+        TextInput:
+
+            id: address
+
+            hint_text: "Alamat / kontak"
+
+            multiline: False
+
+            size_hint_y: None
+
+            height: dp(44)
+
+            padding: [dp(12),dp(10)]
+
+            background_normal: ""
+
+            background_color: (1,1,1,1)
+
+
+        TextInput:
+
+            id: footer
+
+            hint_text: "Footer struk"
+
+            multiline: False
+
+            size_hint_y: None
+
+            height: dp(44)
+
+            padding: [dp(12),dp(10)]
+
+            background_normal: ""
+
+            background_color: (1,1,1,1)
+
+
+        Spinner:
+
+            id: paper
+
+            text: "58mm"
+
+            values: ["58mm","80mm"]
+
+            size_hint_y: None
+
+            height: dp(44)
+
+
+        PrimaryButton:
+
+            text: "SIMPAN PENGATURAN"
+
+            on_release:
+
+                root.save()
+
+
+        SoftButton:
+
+            text: "BACKUP DATABASE"
+
+            on_release:
+
+                root.backup()
+
+
+        Label:
+
+            text: "Printer thermal Bluetooth harus sudah dipairing melalui Android."
+
+            color: (.40,.44,.51,1)
+
+            font_size: "13sp"
+
+            halign: "left"
+
+            valign: "top"
+
+            text_size: self.width, None
+
+
+        Widget:
+
+
+BoxLayout:
+
+    orientation: "vertical"
+
+
+    SwipeManager:
+
+        id: sm
+
+
+        POSScreen:
+
+            name: "pos"
+
+
+        ProductScreen:
+
+            name: "products"
+
+
+        TransactionScreen:
+
+            name: "transactions"
+
+
+        ReportScreen:
+
+            name: "reports"
+
+
+        SettingsScreen:
+
+            name: "settings"
+
+
+    BoxLayout:
+
+        size_hint_y: None
+
+        height: dp(72)
+
+        padding: dp(5)
+
+        spacing: dp(3)
+
+
+        canvas.before:
+
+            Color:
+
+                rgba: (1,1,1,1)
+
+            Rectangle:
+
+                pos: self.pos
+
+                size: self.size
+
+
+        NavButton:
+
+            text: "▣\\nKasir"
+
+            on_release:
+
+                app.navigate("pos")
+
+
+        NavButton:
+
+            text: "▤\\nProduk"
+
+            on_release:
+
+                app.navigate("products")
+
+
+        NavButton:
+
+            text: "↻\\nRiwayat"
+
+            on_release:
+
+                app.navigate("transactions")
+
+
+        NavButton:
+
+            text: "▥\\nLaporan"
+
+            on_release:
+
+                app.navigate("reports")
+
+
+        NavButton:
+
+            text: "⚙\\nPengaturan"
+
+            on_release:
+
+                app.navigate("settings")
+'''
 
 
 # ============================================================
@@ -150,9 +959,13 @@ class SwipeManager(ScreenManager):
 # ============================================================
 
 class DB:
+
     def __init__(self, path):
+
         self.path = path
+
         folder = os.path.dirname(path)
+
         if folder:
             os.makedirs(folder, exist_ok=True)
 
@@ -161,55 +974,59 @@ class DB:
             check_same_thread=False,
             timeout=15
         )
+
         self.conn.row_factory = sqlite3.Row
+
         self.setup()
 
     def setup(self):
-        cur = self.conn.cursor()
-        cur.executescript("""
-        PRAGMA foreign_keys=ON;
 
-        CREATE TABLE IF NOT EXISTS products(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            sku TEXT DEFAULT '',
-            category TEXT DEFAULT '',
-            price REAL NOT NULL DEFAULT 0,
-            cost REAL NOT NULL DEFAULT 0,
-            stock REAL NOT NULL DEFAULT 0,
-            image TEXT DEFAULT '',
-            active INTEGER DEFAULT 1,
-            created_at TEXT NOT NULL
-        );
+        cursor = self.conn.cursor()
 
-        CREATE TABLE IF NOT EXISTS sales(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            invoice TEXT UNIQUE NOT NULL,
-            subtotal REAL NOT NULL,
-            discount REAL NOT NULL,
-            tax REAL NOT NULL,
-            total REAL NOT NULL,
-            payment_method TEXT NOT NULL,
-            paid REAL NOT NULL,
-            change_amount REAL NOT NULL,
-            created_at TEXT NOT NULL
-        );
+        cursor.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS products(
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                sku TEXT DEFAULT '',
+                category TEXT DEFAULT '',
+                price REAL NOT NULL DEFAULT 0,
+                cost REAL NOT NULL DEFAULT 0,
+                stock REAL NOT NULL DEFAULT 0,
+                image TEXT DEFAULT '',
+                active INTEGER DEFAULT 1,
+                created_at TEXT NOT NULL
+            );
 
-        CREATE TABLE IF NOT EXISTS sale_items(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            sale_id INTEGER NOT NULL,
-            product_id INTEGER NOT NULL,
-            name TEXT NOT NULL,
-            qty REAL NOT NULL,
-            price REAL NOT NULL,
-            line_total REAL NOT NULL
-        );
+            CREATE TABLE IF NOT EXISTS sales(
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                invoice TEXT UNIQUE NOT NULL,
+                subtotal REAL NOT NULL,
+                discount REAL NOT NULL,
+                tax REAL NOT NULL,
+                total REAL NOT NULL,
+                payment_method TEXT NOT NULL,
+                paid REAL NOT NULL,
+                change_amount REAL NOT NULL,
+                created_at TEXT NOT NULL
+            );
 
-        CREATE TABLE IF NOT EXISTS settings(
-            key TEXT PRIMARY KEY,
-            value TEXT NOT NULL
-        );
-        """)
+            CREATE TABLE IF NOT EXISTS sale_items(
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sale_id INTEGER NOT NULL,
+                product_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                qty REAL NOT NULL,
+                price REAL NOT NULL,
+                line_total REAL NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS settings(
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            );
+            """
+        )
 
         defaults = {
             "store_name": "KasirQU",
@@ -220,35 +1037,58 @@ class DB:
         }
 
         for key, value in defaults.items():
-            cur.execute(
-                "INSERT OR IGNORE INTO settings(key,value) VALUES(?,?)",
+
+            cursor.execute(
+                """
+                INSERT OR IGNORE INTO settings(key,value)
+                VALUES(?,?)
+                """,
                 (key, value)
             )
 
         self.conn.commit()
 
     def setting(self, key):
+
         row = self.conn.execute(
-            "SELECT value FROM settings WHERE key=?",
+            """
+            SELECT value
+            FROM settings
+            WHERE key=?
+            """,
             (key,)
         ).fetchone()
+
         return row["value"] if row else ""
 
     def set_setting(self, key, value):
+
         self.conn.execute(
-            "INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)",
+            """
+            INSERT OR REPLACE INTO settings(key,value)
+            VALUES(?,?)
+            """,
             (key, str(value))
         )
+
         self.conn.commit()
 
     def products(self, search=""):
+
         if search:
-            q = f"%{search.strip()}%"
+
+            q = "%" + search.strip() + "%"
+
             return self.conn.execute(
                 """
-                SELECT * FROM products
+                SELECT *
+                FROM products
                 WHERE active=1
-                AND (name LIKE ? OR sku LIKE ? OR category LIKE ?)
+                AND (
+                    name LIKE ?
+                    OR sku LIKE ?
+                    OR category LIKE ?
+                )
                 ORDER BY name COLLATE NOCASE
                 """,
                 (q, q, q)
@@ -256,83 +1096,149 @@ class DB:
 
         return self.conn.execute(
             """
-            SELECT * FROM products
+            SELECT *
+            FROM products
             WHERE active=1
             ORDER BY name COLLATE NOCASE
             """
         ).fetchall()
 
     def add_product(
-        self, name, sku, category, price, cost, stock, image=""
+        self,
+        name,
+        sku,
+        category,
+        price,
+        cost,
+        stock,
+        image=""
     ):
+
         self.conn.execute(
             """
-            INSERT INTO products
-            (name,sku,category,price,cost,stock,image,created_at)
+            INSERT INTO products(
+                name,
+                sku,
+                category,
+                price,
+                cost,
+                stock,
+                image,
+                created_at
+            )
             VALUES(?,?,?,?,?,?,?,?)
             """,
             (
-                name, sku, category,
-                float(price), float(cost), float(stock),
+                name,
+                sku,
+                category,
+                float(price),
+                float(cost),
+                float(stock),
                 image,
-                datetime.now().isoformat(timespec="seconds")
+                datetime.now().isoformat(
+                    timespec="seconds"
+                )
             )
         )
+
         self.conn.commit()
 
     def create_sale(
-        self, cart, subtotal, discount, tax, total,
-        method, paid, change
+        self,
+        cart,
+        subtotal,
+        discount,
+        tax,
+        total,
+        method,
+        paid,
+        change
     ):
-        now = datetime.now()
-        invoice = "INV-" + now.strftime("%Y%m%d%H%M%S%f")
-        created = now.isoformat(timespec="seconds")
-        cur = self.conn.cursor()
+
+        invoice = (
+            "INV-"
+            +
+            datetime.now().strftime(
+                "%Y%m%d%H%M%S%f"
+            )
+        )
+
+        now = datetime.now().isoformat(
+            timespec="seconds"
+        )
+
+        cursor = self.conn.cursor()
 
         try:
+
             self.conn.execute("BEGIN")
 
-            cur.execute(
+            cursor.execute(
                 """
-                INSERT INTO sales
-                (invoice,subtotal,discount,tax,total,payment_method,
-                 paid,change_amount,created_at)
+                INSERT INTO sales(
+                    invoice,
+                    subtotal,
+                    discount,
+                    tax,
+                    total,
+                    payment_method,
+                    paid,
+                    change_amount,
+                    created_at
+                )
                 VALUES(?,?,?,?,?,?,?,?,?)
                 """,
                 (
-                    invoice, subtotal, discount, tax, total,
-                    method, paid, change, created
+                    invoice,
+                    subtotal,
+                    discount,
+                    tax,
+                    total,
+                    method,
+                    paid,
+                    change,
+                    now
                 )
             )
 
-            sale_id = cur.lastrowid
+            sale_id = cursor.lastrowid
 
             for item in cart:
-                row = cur.execute(
+
+                product = cursor.execute(
                     """
-                    SELECT stock FROM products
-                    WHERE id=? AND active=1
+                    SELECT stock
+                    FROM products
+                    WHERE id=?
+                    AND active=1
                     """,
                     (item["id"],)
                 ).fetchone()
 
-                if not row:
+                if not product:
                     raise ValueError(
-                        f'Produk "{item["name"]}" tidak ditemukan.'
+                        "Produk tidak ditemukan."
                     )
 
-                stock = float(row["stock"])
+                stock = float(product["stock"])
                 qty = float(item["qty"])
 
                 if stock < qty:
                     raise ValueError(
-                        f'Stok "{item["name"]}" tidak mencukupi.'
+                        "Stok produk tidak mencukupi."
                     )
 
-                cur.execute(
+                cursor.execute(
                     """
-                    INSERT INTO sale_items
-                    (sale_id,product_id,name,qty,price,line_total)
+                    INSERT INTO sale_items(
+                        sale_id,
+                        product_id,
+                        name,
+                        qty,
+                        price,
+                        line_total
+                    )
                     VALUES(?,?,?,?,?,?)
                     """,
                     (
@@ -345,27 +1251,97 @@ class DB:
                     )
                 )
 
-                cur.execute(
+                cursor.execute(
                     """
                     UPDATE products
                     SET stock=stock-?
                     WHERE id=?
                     """,
-                    (qty, item["id"])
+                    (
+                        qty,
+                        item["id"]
+                    )
                 )
 
             self.conn.commit()
+
             return invoice
 
         except Exception:
+
             self.conn.rollback()
+
             raise
 
     def sales(self, limit=100):
+
         return self.conn.execute(
-            "SELECT * FROM sales ORDER BY id DESC LIMIT ?",
+            """
+            SELECT *
+            FROM sales
+            ORDER BY id DESC
+            LIMIT ?
+            """,
             (limit,)
         ).fetchall()
+
+
+# ============================================================
+# COMMON UI HELPERS
+# ============================================================
+
+def make_button(
+    text,
+    primary=False,
+    height=44
+):
+
+    button = Button(
+        text=text,
+        size_hint_y=None,
+        height=dp(height),
+        background_normal="",
+        background_down=""
+    )
+
+    button.background_color = (
+        PRIMARY if primary else WHITE
+    )
+
+    button.color = (
+        WHITE if primary else TEXT
+    )
+
+    button.bold = True
+
+    return button
+
+
+def text_label(
+    text,
+    size=14,
+    color=TEXT,
+    halign="left"
+):
+
+    label = Label(
+        text=str(text),
+        font_size=f"{size}sp",
+        color=color,
+        halign=halign,
+        valign="middle"
+    )
+
+    label.bind(
+        size=lambda widget, value:
+        setattr(
+            widget,
+            "text_size",
+            value
+        )
+    )
+
+    return label
 
 
 # ============================================================
@@ -373,219 +1349,250 @@ class DB:
 # ============================================================
 
 class POSScreen(Screen):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.app = None
-        self.cart_data = []
-        self._built = False
 
-    def on_kv_post(self, *_):
-        # Nama method dipertahankan sebagai no-op agar aman jika project
-        # lama pernah memanggilnya. UI sebenarnya dibuat di build_ui().
-        pass
+    def on_enter(self):
 
-    def on_pre_enter(self, *_):
-        if not self._built:
-            self.build_ui()
         self.app = App.get_running_app()
+
+        if not hasattr(self, "cart_data"):
+            self.cart_data = []
+
         self.refresh_products()
-        self.update_summary()
+        self.render_cart_summary()
 
-    def build_ui(self):
-        self._built = True
-        root = BoxLayout(
-            orientation="vertical",
-            padding=dp(12),
-            spacing=dp(10)
-        )
+    def refresh_products(self, text=""):
 
-        # Header
-        header = BoxLayout(
-            size_hint_y=None,
-            height=dp(52),
-            spacing=dp(8)
-        )
-        header.add_widget(text_label(
-            "KasirQU",
-            size=23,
-            bold=True,
-            color=(0.06, 0.10, 0.16, 1),
-            size_hint_x=0.35
-        ))
+        try:
 
-        self.search = TextInput(
-            hint_text="Cari produk / SKU...",
-            multiline=False,
-            size_hint_x=0.65,
-            padding=[dp(12), dp(10)]
-        )
-        self.search.bind(text=lambda *_: self.refresh_products())
-        header.add_widget(self.search)
-        root.add_widget(header)
+            box = self.ids.products
 
-        # Produk
-        root.add_widget(text_label(
-            "Pilih produk",
-            size=14,
-            color=(0.38, 0.42, 0.49, 1),
-            size_hint_y=None,
-            height=dp(25)
-        ))
+            box.clear_widgets()
 
-        scroll = ScrollView(do_scroll_x=False)
-        self.products_grid = GridLayout(
-            cols=2,
-            spacing=dp(9),
-            padding=dp(2),
-            size_hint_y=None
-        )
-        self.products_grid.bind(
-            minimum_height=self.products_grid.setter("height")
-        )
-        scroll.add_widget(self.products_grid)
-        root.add_widget(scroll)
+            products = self.app.db.products(text)
 
-        # Summary bawah - ringkas
-        summary = Card(
-            orientation="horizontal",
-            size_hint_y=None,
-            height=dp(70),
-            padding=dp(10),
-            spacing=dp(8)
-        )
-        self.cart_count_label = text_label(
-            "0 item",
-            size=14,
-            bold=True,
-            size_hint_x=0.30
-        )
-        self.cart_total_label = text_label(
-            "Rp 0",
-            size=19,
-            bold=True,
-            halign="right",
-            color=(0.08, 0.32, 0.78, 1),
-            size_hint_x=0.42
-        )
-        cart_btn = make_button(
-            "KERANJANG",
-            primary=True,
-            height=44,
-            size_hint_x=0.28
-        )
-        cart_btn.bind(on_release=lambda *_: self.open_cart_popup())
+            for product in products:
 
-        summary.add_widget(self.cart_count_label)
-        summary.add_widget(self.cart_total_label)
-        summary.add_widget(cart_btn)
-        root.add_widget(summary)
+                card = Card(
+                    orientation="vertical",
+                    size_hint_y=None,
+                    height=dp(205),
+                    padding=dp(8),
+                    spacing=dp(5)
+                )
 
-        self.add_widget(root)
+                image_path = self.app.resolve_image(
+                    product["image"]
+                )
 
-    def refresh_products(self, *_):
-        if not self._built or self.app is None:
-            return
+                if image_path:
 
-        self.products_grid.clear_widgets()
-        query = self.search.text if hasattr(self, "search") else ""
+                    product_image = Image(
+                        source=image_path,
+                        size_hint_y=None,
+                        height=dp(110),
+                        allow_stretch=True,
+                        keep_ratio=True
+                    )
 
-        for product in self.app.db.products(query):
-            self.products_grid.add_widget(
-                self.make_product_card(product)
+                    card.add_widget(product_image)
+
+                else:
+
+                    placeholder = Label(
+                        text="FOTO",
+                        size_hint_y=None,
+                        height=dp(110),
+                        color=MUTED,
+                        font_size="14sp",
+                        bold=True
+                    )
+
+                    card.add_widget(
+                        placeholder
+                    )
+
+                info = Label(
+                    text=(
+                        f'{product["name"]}\n'
+                        f'{money(product["price"])}'
+                        f'  •  stok '
+                        f'{float(product["stock"]):g}'
+                    ),
+                    color=TEXT,
+                    font_size="13sp",
+                    bold=True,
+                    halign="center",
+                    valign="middle"
+                )
+
+                info.bind(
+                    size=lambda widget, value:
+                    setattr(
+                        widget,
+                        "text_size",
+                        value
+                    )
+                )
+
+                card.add_widget(info)
+
+                button = make_button(
+                    "+ Tambah",
+                    primary=True,
+                    height=36
+                )
+
+                button.bind(
+                    on_release=lambda *_,
+                    product=product:
+                    self.add_product(product)
+                )
+
+                card.add_widget(button)
+
+                box.add_widget(card)
+
+        except Exception as error:
+
+            self.app.log_error(
+                "POS_REFRESH_PRODUCTS",
+                error
             )
 
-    def make_product_card(self, product):
-        card = Card(
-            orientation="vertical",
-            size_hint_y=None,
-            height=dp(190),
-            padding=dp(7),
-            spacing=dp(5)
-        )
-
-        image = self.app.product_image_widget(
-            product["image"],
-            size_hint_y=0.56
-        )
-        card.add_widget(image)
-
-        info = text_label(
-            f'{product["name"]}\n'
-            f'{money(product["price"])}  â€¢  stok {float(product["stock"]):g}',
-            size=13,
-            bold=True,
-            halign="center",
-            size_hint_y=0.25
-        )
-        card.add_widget(info)
-
-        btn = make_button(
-            "+ Tambah",
-            primary=True,
-            height=36,
-            size_hint_y=0.19
-        )
-        btn.bind(
-            on_release=lambda *_,
-            p=product: self.add_product(p)
-        )
-        card.add_widget(btn)
-
-        return card
-
     def add_product(self, product):
-        stock = float(product["stock"])
+
+        stock = safe_float(
+            product["stock"]
+        )
 
         if stock <= 0:
-            self.app.notify("Stok produk habis.")
+
+            self.app.notify(
+                "Stok produk habis."
+            )
+
             return
 
         for item in self.cart_data:
+
             if item["id"] == product["id"]:
+
                 if item["qty"] + 1 > stock:
-                    self.app.notify("Jumlah melebihi stok.")
+
+                    self.app.notify(
+                        "Jumlah melebihi stok."
+                    )
+
                     return
+
                 item["qty"] += 1
-                self.update_summary()
+
+                self.render_cart_summary()
+
                 return
 
-        self.cart_data.append({
-            "id": product["id"],
-            "name": product["name"],
-            "price": float(product["price"]),
-            "qty": 1.0,
-            "stock": stock
-        })
-        self.update_summary()
-
-    def calculate_total(self, discount=0, tax_percent=None):
-        subtotal = sum(
-            float(x["qty"]) * float(x["price"])
-            for x in self.cart_data
+        self.cart_data.append(
+            {
+                "id": product["id"],
+                "name": product["name"],
+                "price": safe_float(
+                    product["price"]
+                ),
+                "qty": 1,
+                "stock": stock
+            }
         )
-        discount = max(0, number(discount))
+
+        self.render_cart_summary()
+
+    def calculate_total(
+        self,
+        discount=0,
+        tax_percent=None
+    ):
+
+        subtotal = sum(
+            item["qty"] * item["price"]
+            for item in self.cart_data
+        )
+
+        discount = max(
+            0,
+            safe_float(discount)
+        )
 
         if tax_percent is None:
-            tax_percent = number(self.app.tax_percent)
 
-        taxable = max(0, subtotal - discount)
-        tax = taxable * max(0, number(tax_percent)) / 100
-        total = max(0, taxable + tax)
-        return subtotal, discount, tax, total
+            tax_percent = safe_float(
+                self.app.tax_percent
+            )
 
-    def update_summary(self):
-        if not self._built:
-            return
+        tax_percent = max(
+            0,
+            safe_float(tax_percent)
+        )
 
-        _, _, _, total = self.calculate_total()
-        count = sum(float(x["qty"]) for x in self.cart_data)
+        taxable = max(
+            0,
+            subtotal - discount
+        )
 
-        self.cart_count_label.text = f"{count:g} item"
-        self.cart_total_label.text = money(total)
+        tax = (
+            taxable
+            *
+            tax_percent
+            /
+            100
+        )
+
+        total = max(
+            0,
+            taxable + tax
+        )
+
+        return (
+            subtotal,
+            discount,
+            tax,
+            total
+        )
+
+    def render_cart_summary(self):
+
+        try:
+
+            _, _, _, total = (
+                self.calculate_total()
+            )
+
+            count = sum(
+                item["qty"]
+                for item in self.cart_data
+            )
+
+            self.ids.cart_count.text = (
+                f"{count:g} item"
+            )
+
+            self.ids.cart_total.text = (
+                money(total)
+            )
+
+        except Exception as error:
+
+            self.app.log_error(
+                "CART_SUMMARY",
+                error
+            )
 
     def open_cart_popup(self):
+
         if not self.cart_data:
-            self.app.notify("Keranjang masih kosong.")
+
+            self.app.notify(
+                "Keranjang masih kosong."
+            )
+
             return
 
         content = BoxLayout(
@@ -594,15 +1601,21 @@ class POSScreen(Screen):
             padding=dp(10)
         )
 
-        scroll = ScrollView(do_scroll_x=False)
+        scroll = ScrollView(
+            do_scroll_x=False
+        )
+
         rows = GridLayout(
             cols=1,
             spacing=dp(6),
             size_hint_y=None
         )
-        rows.bind(minimum_height=rows.setter("height"))
-        scroll.add_widget(rows)
-        content.add_widget(scroll)
+
+        rows.bind(
+            minimum_height=rows.setter(
+                "height"
+            )
+        )
 
         discount = TextInput(
             hint_text="Diskon",
@@ -610,93 +1623,177 @@ class POSScreen(Screen):
             input_filter="float",
             multiline=False,
             size_hint_y=None,
-            height=dp(44)
+            height=dp(42)
         )
+
         tax = TextInput(
             hint_text="Pajak %",
-            text=self.app.tax_percent,
+            text=str(
+                self.app.tax_percent
+            ),
             input_filter="float",
             multiline=False,
             size_hint_y=None,
-            height=dp(44)
+            height=dp(42)
         )
-        total_label = text_label(
-            "TOTAL  Rp 0",
-            size=19,
+
+        total_label = Label(
+            text="TOTAL  Rp 0",
+            size_hint_y=None,
+            height=dp(40),
+            font_size="19sp",
             bold=True,
-            color=(0.08, 0.32, 0.78, 1),
-            size_hint_y=None,
-            height=dp(40)
-        )
-
-        content.add_widget(discount)
-        content.add_widget(tax)
-        content.add_widget(total_label)
-
-        actions = BoxLayout(
-            size_hint_y=None,
-            height=dp(46),
-            spacing=dp(7)
-        )
-        clear = make_button("Kosongkan", height=46)
-        pay = make_button("BAYAR", primary=True, height=46)
-        actions.add_widget(clear)
-        actions.add_widget(pay)
-        content.add_widget(actions)
-
-        popup = Popup(
-            title="Keranjang",
-            content=content,
-            size_hint=(0.94, 0.88)
+            color=PRIMARY
         )
 
         def redraw(*_):
+
             rows.clear_widgets()
 
-            for index, item in enumerate(self.cart_data):
-                row = BoxLayout(
+            for index, item in enumerate(
+                self.cart_data
+            ):
+
+                row = Card(
+                    orientation="horizontal",
                     size_hint_y=None,
-                    height=dp(54),
+                    height=dp(58),
+                    padding=dp(5),
                     spacing=dp(4)
                 )
 
-                label = text_label(
-                    f'{item["name"]}\n'
-                    f'{item["qty"]:g} Ã— {money(item["price"])}',
-                    size=12,
-                    size_hint_x=0.58
+                name = Label(
+                    text=(
+                        f'{item["name"]}\n'
+                        f'{item["qty"]:g} x '
+                        f'{money(item["price"])}'
+                    ),
+                    color=TEXT,
+                    halign="left",
+                    valign="middle"
                 )
-                row.add_widget(label)
 
-                minus = make_button("âˆ’", height=42, size_hint_x=None, width=dp(42))
-                plus = make_button("+", height=42, size_hint_x=None, width=dp(42))
-                delete = make_button("Ã—", height=42, size_hint_x=None, width=dp(42))
+                name.bind(
+                    size=lambda widget, value:
+                    setattr(
+                        widget,
+                        "text_size",
+                        value
+                    )
+                )
+
+                row.add_widget(name)
+
+                minus = make_button(
+                    "-",
+                    height=42
+                )
+
+                plus = make_button(
+                    "+",
+                    primary=True,
+                    height=42
+                )
+
+                delete = make_button(
+                    "×",
+                    height=42
+                )
+
+                minus.size_hint_x = None
+                plus.size_hint_x = None
+                delete.size_hint_x = None
+
+                minus.width = dp(40)
+                plus.width = dp(40)
+                delete.width = dp(40)
 
                 minus.bind(
                     on_release=lambda *_,
-                    i=index: self.change_qty(i, -1, redraw)
+                    index=index:
+                    self.change_qty(
+                        index,
+                        -1,
+                        redraw
+                    )
                 )
+
                 plus.bind(
                     on_release=lambda *_,
-                    i=index: self.change_qty(i, 1, redraw)
+                    index=index:
+                    self.change_qty(
+                        index,
+                        1,
+                        redraw
+                    )
                 )
+
                 delete.bind(
                     on_release=lambda *_,
-                    i=index: self.remove_item(i, redraw)
+                    index=index:
+                    self.remove_item(
+                        index,
+                        redraw
+                    )
                 )
 
                 row.add_widget(minus)
                 row.add_widget(plus)
                 row.add_widget(delete)
+
                 rows.add_widget(row)
 
-            _, _, _, total = self.calculate_total(
-                discount.text, tax.text
+            _, _, _, total = (
+                self.calculate_total(
+                    discount.text,
+                    tax.text
+                )
             )
-            total_label.text = f"TOTAL  {money(total)}"
 
-        discount.bind(text=redraw)
-        tax.bind(text=redraw)
+            total_label.text = (
+                f"TOTAL  {money(total)}"
+            )
+
+        discount.bind(
+            text=redraw
+        )
+
+        tax.bind(
+            text=redraw
+        )
+
+        scroll.add_widget(rows)
+
+        content.add_widget(scroll)
+        content.add_widget(discount)
+        content.add_widget(tax)
+        content.add_widget(total_label)
+
+        buttons = BoxLayout(
+            size_hint_y=None,
+            height=dp(46),
+            spacing=dp(7)
+        )
+
+        clear = make_button(
+            "Kosongkan"
+        )
+
+        pay = make_button(
+            "BAYAR",
+            primary=True
+        )
+
+        buttons.add_widget(clear)
+        buttons.add_widget(pay)
+
+        content.add_widget(buttons)
+
+        popup = Popup(
+            title="Keranjang Belanja",
+            content=content,
+            size_hint=(.94, .88)
+        )
 
         clear.bind(
             on_release=lambda *_: (
@@ -704,156 +1801,278 @@ class POSScreen(Screen):
                 popup.dismiss()
             )
         )
-        pay.bind(
-            on_release=lambda *_: (
-                popup.dismiss(),
-                self.open_payment_popup(
-                    discount.text,
-                    tax.text
-                )
+
+        def payment(*_):
+
+            discount_value = discount.text
+            tax_value = tax.text
+
+            popup.dismiss()
+
+            self.open_payment_popup(
+                discount_value,
+                tax_value
             )
+
+        pay.bind(
+            on_release=payment
         )
 
         popup.open()
+
         redraw()
 
-    def change_qty(self, index, delta, callback=None):
-        if not 0 <= index < len(self.cart_data):
-            return
+    def change_qty(
+        self,
+        index,
+        delta,
+        callback=None
+    ):
 
-        item = self.cart_data[index]
-        item["qty"] += delta
+        if (
+            0 <= index
+            < len(self.cart_data)
+        ):
 
-        if item["qty"] <= 0:
-            self.cart_data.pop(index)
-        elif item["qty"] > item["stock"]:
-            item["qty"] = item["stock"]
+            item = self.cart_data[index]
 
-        self.update_summary()
+            item["qty"] += delta
+
+            if item["qty"] <= 0:
+
+                self.cart_data.pop(index)
+
+            elif item["qty"] > item["stock"]:
+
+                item["qty"] = item["stock"]
+
+        self.render_cart_summary()
+
         if callback:
             callback()
 
-    def remove_item(self, index, callback=None):
-        if 0 <= index < len(self.cart_data):
+    def remove_item(
+        self,
+        index,
+        callback=None
+    ):
+
+        if (
+            0 <= index
+            < len(self.cart_data)
+        ):
+
             self.cart_data.pop(index)
 
-        self.update_summary()
+        self.render_cart_summary()
+
         if callback:
             callback()
 
-    def clear_cart(self):
-        self.cart_data = []
-        self.update_summary()
+    def open_payment_popup(
+        self,
+        discount="0",
+        tax="0"
+    ):
 
-    def open_payment_popup(self, discount="0", tax="0"):
         if not self.cart_data:
             return
 
-        subtotal, discount_value, tax_value, total = self.calculate_total(
-            discount, tax
+        (
+            subtotal,
+            discount_value,
+            tax_value,
+            total
+        ) = self.calculate_total(
+            discount,
+            tax
         )
 
         content = BoxLayout(
             orientation="vertical",
-            spacing=dp(8),
+            spacing=dp(9),
             padding=dp(12)
         )
 
-        content.add_widget(text_label(
-            f"TOTAL\n{money(total)}",
-            size=22,
-            bold=True,
-            halign="center",
-            color=(0.08, 0.32, 0.78, 1),
+        total_card = Card(
+            orientation="vertical",
             size_hint_y=None,
-            height=dp(72)
-        ))
+            height=dp(82),
+            padding=dp(10)
+        )
+
+        total_card.add_widget(
+            Label(
+                text="TOTAL BELANJA",
+                color=MUTED,
+                font_size="12sp"
+            )
+        )
+
+        total_card.add_widget(
+            Label(
+                text=money(total),
+                color=PRIMARY,
+                font_size="24sp",
+                bold=True
+            )
+        )
+
+        content.add_widget(total_card)
 
         method = Spinner(
             text="Tunai",
             values=[
-                "Tunai", "QRIS", "Debit",
-                "Kredit", "Transfer", "E-Wallet"
+                "Tunai",
+                "QRIS",
+                "Debit",
+                "Kredit",
+                "Transfer",
+                "E-Wallet"
             ],
             size_hint_y=None,
             height=dp(44)
         )
+
         paid = TextInput(
             hint_text="Uang diterima",
             input_filter="float",
             multiline=False,
             size_hint_y=None,
-            height=dp(44)
+            height=dp(44),
+            padding=[dp(12), dp(10)]
         )
-        change = text_label(
-            "Kembalian  Rp 0",
-            size=16,
+
+        change = Label(
+            text="Kembalian  Rp 0",
+            font_size="16sp",
             bold=True,
-            color=(0.06, 0.55, 0.30, 1),
             size_hint_y=None,
-            height=dp(40)
+            height=dp(40),
+            color=SUCCESS
         )
 
         content.add_widget(method)
         content.add_widget(paid)
         content.add_widget(change)
 
-        actions = BoxLayout(
+        def update(*_):
+
+            if method.text == "Tunai":
+
+                paid.disabled = False
+
+                paid_value = safe_float(
+                    paid.text
+                )
+
+                change.text = (
+                    "Kembalian  "
+                    +
+                    money(
+                        max(
+                            0,
+                            paid_value - total
+                        )
+                    )
+                )
+
+            else:
+
+                paid.text = ""
+                paid.disabled = True
+
+                change.text = (
+                    "Pembayaran non-tunai"
+                )
+
+        paid.bind(
+            text=update
+        )
+
+        method.bind(
+            text=update
+        )
+
+        buttons = BoxLayout(
             size_hint_y=None,
             height=dp(46),
             spacing=dp(7)
         )
-        cancel = make_button("Batal", height=46)
-        done = make_button("SELESAIKAN", primary=True, height=46)
-        actions.add_widget(cancel)
-        actions.add_widget(done)
-        content.add_widget(actions)
+
+        cancel = make_button("Batal")
+        done = make_button(
+            "SELESAIKAN",
+            primary=True
+        )
+
+        buttons.add_widget(cancel)
+        buttons.add_widget(done)
+
+        content.add_widget(buttons)
 
         popup = Popup(
             title="Pembayaran",
             content=content,
-            size_hint=(0.92, 0.70)
+            size_hint=(.92, .70)
         )
 
-        def update(*_):
-            if method.text == "Tunai":
-                paid.disabled = False
-                value = max(0, number(paid.text) - total)
-                change.text = f"Kembalian  {money(value)}"
-            else:
-                paid.disabled = True
-                paid.text = ""
-                change.text = "Pembayaran non-tunai"
-
-        paid.bind(text=update)
-        method.bind(text=update)
-
-        cancel.bind(on_release=popup.dismiss)
+        cancel.bind(
+            on_release=popup.dismiss
+        )
 
         def finish(*_):
-            paid_value = number(paid.text)
 
-            if method.text == "Tunai":
-                if paid_value < total:
-                    self.app.notify(
-                        "Uang kurang " + money(total - paid_value)
+            paid_value = safe_float(
+                paid.text
+            )
+
+            if (
+                method.text == "Tunai"
+                and
+                paid_value < total
+            ):
+
+                self.app.notify(
+                    "Uang kurang "
+                    +
+                    money(
+                        total - paid_value
                     )
-                    return
-                change_value = paid_value - total
-            else:
+                )
+
+                return
+
+            if method.text != "Tunai":
                 paid_value = total
-                change_value = 0
+
+            change_value = (
+                max(
+                    0,
+                    paid_value - total
+                )
+                if method.text == "Tunai"
+                else 0
+            )
 
             try:
-                invoice = self.app.db.create_sale(
-                    self.cart_data,
-                    subtotal,
-                    discount_value,
-                    tax_value,
-                    total,
-                    method.text,
-                    paid_value,
-                    change_value
+
+                cart_snapshot = [
+                    dict(item)
+                    for item in self.cart_data
+                ]
+
+                invoice = (
+                    self.app.db.create_sale(
+                        cart_snapshot,
+                        subtotal,
+                        discount_value,
+                        tax_value,
+                        total,
+                        method.text,
+                        paid_value,
+                        change_value
+                    )
                 )
 
                 self.app.last_receipt = (
@@ -865,29 +2084,51 @@ class POSScreen(Screen):
                     method.text,
                     paid_value,
                     change_value,
-                    list(self.cart_data)
+                    cart_snapshot
                 )
 
                 self.clear_cart()
+
                 popup.dismiss()
-                self.app.navigate("transactions")
+
+                self.app.root.ids.sm.current = (
+                    "transactions"
+                )
 
                 self.app.notify(
                     f"Transaksi {invoice} berhasil."
                 )
 
-                self.app.print_or_offer(invoice)
-
-            except Exception as error:
-                self.app.log_error("checkout", error)
-                self.app.notify(
-                    "Transaksi gagal:\n" + str(error)
+                self.app.print_or_offer(
+                    invoice
                 )
 
-        done.bind(on_release=finish)
+            except Exception as error:
+
+                self.app.log_error(
+                    "CHECKOUT",
+                    error
+                )
+
+                self.app.notify(
+                    "Transaksi gagal:\n"
+                    +
+                    str(error)
+                )
+
+        done.bind(
+            on_release=finish
+        )
 
         popup.open()
+
         update()
+
+    def clear_cart(self):
+
+        self.cart_data = []
+
+        self.render_cart_summary()
 
 
 # ============================================================
@@ -895,112 +2136,100 @@ class POSScreen(Screen):
 # ============================================================
 
 class ProductScreen(Screen):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.app = None
-        self._built = False
 
-    def on_pre_enter(self, *_):
+    def on_enter(self):
+
         self.app = App.get_running_app()
-        if not self._built:
-            self.build_ui()
+
         self.refresh()
 
-    def build_ui(self):
-        self._built = True
+    def refresh(self, search=""):
 
-        root = BoxLayout(
-            orientation="vertical",
-            padding=dp(12),
-            spacing=dp(10)
-        )
+        try:
 
-        header = BoxLayout(
-            size_hint_y=None,
-            height=dp(52),
-            spacing=dp(8)
-        )
-        header.add_widget(text_label(
-            "Produk",
-            size=23,
-            bold=True,
-            size_hint_x=0.68
-        ))
+            box = self.ids.list
 
-        add_btn = make_button(
-            "+ Produk",
-            primary=True,
-            height=44,
-            size_hint_x=0.32
-        )
-        add_btn.bind(on_release=lambda *_: self.open_editor())
-        header.add_widget(add_btn)
+            box.clear_widgets()
 
-        root.add_widget(header)
+            products = self.app.db.products(search)
 
-        self.search = TextInput(
-            hint_text="Cari nama, SKU, kategori...",
-            multiline=False,
-            size_hint_y=None,
-            height=dp(44),
-            padding=[dp(12), dp(10)]
-        )
-        self.search.bind(text=lambda *_: self.refresh())
-        root.add_widget(self.search)
+            for product in products:
 
-        scroll = ScrollView(do_scroll_x=False)
-        self.list_grid = GridLayout(
-            cols=1,
-            spacing=dp(8),
-            padding=dp(2),
-            size_hint_y=None
-        )
-        self.list_grid.bind(
-            minimum_height=self.list_grid.setter("height")
-        )
-        scroll.add_widget(self.list_grid)
-        root.add_widget(scroll)
-
-        self.add_widget(root)
-
-    def refresh(self, *_):
-        if not self._built or self.app is None:
-            return
-
-        self.list_grid.clear_widgets()
-        query = self.search.text if hasattr(self, "search") else ""
-
-        for product in self.app.db.products(query):
-            row = Card(
-                orientation="horizontal",
-                size_hint_y=None,
-                height=dp(86),
-                padding=dp(7),
-                spacing=dp(8)
-            )
-
-            row.add_widget(
-                self.app.product_image_widget(
-                    product["image"],
-                    size_hint_x=0.22
+                row = Card(
+                    orientation="horizontal",
+                    size_hint_y=None,
+                    height=dp(92),
+                    spacing=dp(9),
+                    padding=dp(7)
                 )
-            )
 
-            info = text_label(
-                f'{product["name"]}\n'
-                f'{money(product["price"])}  â€¢  stok {float(product["stock"]):g}\n'
-                f'{product["category"] or "Tanpa kategori"}'
-                + (
-                    f'  â€¢  {product["sku"]}'
-                    if product["sku"] else ""
-                ),
-                size=13,
-                size_hint_x=0.78
+                image_path = (
+                    self.app.resolve_image(
+                        product["image"]
+                    )
+                )
+
+                if image_path:
+
+                    image = Image(
+                        source=image_path,
+                        size_hint_x=None,
+                        width=dp(78),
+                        allow_stretch=True,
+                        keep_ratio=True
+                    )
+
+                    row.add_widget(image)
+
+                else:
+
+                    placeholder = Label(
+                        text="FOTO",
+                        size_hint_x=None,
+                        width=dp(78),
+                        color=MUTED,
+                        bold=True
+                    )
+
+                    row.add_widget(
+                        placeholder
+                    )
+
+                info = Label(
+                    text=(
+                        f'{product["name"]}\n'
+                        f'{money(product["price"])}'
+                        f'  •  stok '
+                        f'{float(product["stock"]):g}\n'
+                        f'{product["category"] or "Tanpa kategori"}'
+                    ),
+                    color=TEXT,
+                    halign="left",
+                    valign="middle"
+                )
+
+                info.bind(
+                    size=lambda widget, value:
+                    setattr(
+                        widget,
+                        "text_size",
+                        value
+                    )
+                )
+
+                row.add_widget(info)
+
+                box.add_widget(row)
+
+        except Exception as error:
+
+            self.app.log_error(
+                "PRODUCT_REFRESH",
+                error
             )
-            row.add_widget(info)
-            self.list_grid.add_widget(row)
 
     def open_editor(self):
+
         content = BoxLayout(
             orientation="vertical",
             spacing=dp(7),
@@ -1014,9 +2243,11 @@ class ProductScreen(Screen):
             allow_stretch=True,
             keep_ratio=True
         )
+
         content.add_widget(preview)
 
         fields = {}
+
         definitions = [
             ("name", "Nama produk *"),
             ("sku", "SKU / Barcode"),
@@ -1027,100 +2258,154 @@ class ProductScreen(Screen):
         ]
 
         for key, hint in definitions:
+
             field = TextInput(
                 hint_text=hint,
                 multiline=False,
                 size_hint_y=None,
                 height=dp(42),
-                padding=[dp(10), dp(9)]
+                padding=[dp(10), dp(9)],
+                background_normal="",
+                background_color=WHITE
             )
+
             fields[key] = field
+
             content.add_widget(field)
 
         choose = make_button(
-            "Pilih Foto Produk",
-            height=44
+            "PILIH FOTO PRODUK",
+            primary=False,
+            height=42
         )
+
         content.add_widget(choose)
 
-        selected = {"path": ""}
+        selected = {
+            "path": ""
+        }
 
-        actions = BoxLayout(
+        buttons = BoxLayout(
             size_hint_y=None,
             height=dp(46),
             spacing=dp(7)
         )
-        cancel = make_button("Batal", height=46)
-        save = make_button("Simpan", primary=True, height=46)
-        actions.add_widget(cancel)
-        actions.add_widget(save)
-        content.add_widget(actions)
+
+        cancel = make_button("Batal")
+
+        save = make_button(
+            "Simpan",
+            primary=True
+        )
+
+        buttons.add_widget(cancel)
+        buttons.add_widget(save)
+
+        content.add_widget(buttons)
 
         popup = Popup(
             title="Tambah Produk",
             content=content,
-            size_hint=(0.94, 0.92)
+            size_hint=(.94, .92)
         )
 
         choose.bind(
             on_release=lambda *_:
-            self.app.open_image_picker(selected, preview)
+            self.pick_image(
+                selected,
+                preview
+            )
         )
-        cancel.bind(on_release=popup.dismiss)
+
+        cancel.bind(
+            on_release=popup.dismiss
+        )
 
         def save_product(*_):
+
             name = fields["name"].text.strip()
 
             if not name:
-                self.app.notify("Nama produk wajib diisi.")
-                return
 
-            price = number(fields["price"].text)
-            cost = number(fields["cost"].text)
-            stock = number(fields["stock"].text)
-
-            if price < 0 or cost < 0 or stock < 0:
                 self.app.notify(
-                    "Harga dan stok tidak boleh negatif."
+                    "Nama produk wajib diisi."
                 )
+
                 return
 
             try:
+
                 image_path = ""
 
                 if selected["path"]:
-                    image_path = self.app.save_selected_image(
-                        selected["path"]
+
+                    image_path = (
+                        self.app.save_selected_image(
+                            selected["path"]
+                        )
                     )
+
                     if not image_path:
+
                         self.app.notify(
                             "Foto tidak dapat disimpan."
                         )
+
                         return
 
                 self.app.db.add_product(
                     name,
                     fields["sku"].text.strip(),
                     fields["category"].text.strip(),
-                    price,
-                    cost,
-                    stock,
+                    safe_float(
+                        fields["price"].text
+                    ),
+                    safe_float(
+                        fields["cost"].text
+                    ),
+                    safe_float(
+                        fields["stock"].text
+                    ),
                     image_path
                 )
 
                 popup.dismiss()
-                self.refresh()
-                self.app.notify("Produk berhasil ditambahkan.")
 
-            except Exception as error:
-                self.app.log_error("save_product", error)
+                self.refresh()
+
                 self.app.notify(
-                    "Produk gagal disimpan:\n" + str(error)
+                    "Produk berhasil ditambahkan."
                 )
 
-        save.bind(on_release=save_product)
+            except Exception as error:
+
+                self.app.log_error(
+                    "SAVE_PRODUCT",
+                    error
+                )
+
+                self.app.notify(
+                    "Produk gagal disimpan:\n"
+                    +
+                    str(error)
+                )
+
+        save.bind(
+            on_release=save_product
+        )
 
         popup.open()
+
+    def pick_image(
+        self,
+        selected,
+        preview
+    ):
+
+        self.app.open_image_picker(
+            selected,
+            preview
+        )
 
 
 # ============================================================
@@ -1128,80 +2413,83 @@ class ProductScreen(Screen):
 # ============================================================
 
 class TransactionScreen(Screen):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.app = None
-        self._built = False
 
-    def on_pre_enter(self, *_):
+    def on_enter(self):
+
         self.app = App.get_running_app()
-        if not self._built:
-            self.build_ui()
+
         self.refresh()
 
-    def build_ui(self):
-        self._built = True
+    def refresh(self):
 
-        root = BoxLayout(
-            orientation="vertical",
-            padding=dp(12),
-            spacing=dp(10)
-        )
+        try:
 
-        root.add_widget(text_label(
-            "Riwayat Transaksi",
-            size=23,
-            bold=True,
-            size_hint_y=None,
-            height=dp(52)
-        ))
+            box = self.ids.list
 
-        scroll = ScrollView(do_scroll_x=False)
-        self.list_grid = GridLayout(
-            cols=1,
-            spacing=dp(8),
-            size_hint_y=None
-        )
-        self.list_grid.bind(
-            minimum_height=self.list_grid.setter("height")
-        )
-        scroll.add_widget(self.list_grid)
-        root.add_widget(scroll)
+            box.clear_widgets()
 
-        self.add_widget(root)
+            for sale in self.app.db.sales():
 
-    def refresh(self, *_):
-        if not self._built or self.app is None:
-            return
+                row = Card(
+                    orientation="horizontal",
+                    size_hint_y=None,
+                    height=dp(82),
+                    padding=dp(10),
+                    spacing=dp(8)
+                )
 
-        self.list_grid.clear_widgets()
+                info = Label(
+                    text=(
+                        f'{sale["invoice"]}\n'
+                        f'{sale["created_at"]}\n'
+                        f'{sale["payment_method"]}'
+                    ),
+                    color=TEXT,
+                    halign="left",
+                    valign="middle"
+                )
 
-        for sale in self.app.db.sales():
-            row = Card(
-                orientation="horizontal",
-                size_hint_y=None,
-                height=dp(78),
-                padding=dp(10)
+                info.bind(
+                    size=lambda widget, value:
+                    setattr(
+                        widget,
+                        "text_size",
+                        value
+                    )
+                )
+
+                total = Label(
+                    text=money(
+                        sale["total"]
+                    ),
+                    color=PRIMARY,
+                    bold=True,
+                    font_size="15sp",
+                    size_hint_x=.35,
+                    halign="right",
+                    valign="middle"
+                )
+
+                total.bind(
+                    size=lambda widget, value:
+                    setattr(
+                        widget,
+                        "text_size",
+                        value
+                    )
+                )
+
+                row.add_widget(info)
+                row.add_widget(total)
+
+                box.add_widget(row)
+
+        except Exception as error:
+
+            self.app.log_error(
+                "TRANSACTION_REFRESH",
+                error
             )
-
-            info = text_label(
-                f'{sale["invoice"]}\n'
-                f'{sale["created_at"]}  â€¢  {sale["payment_method"]}',
-                size=12,
-                size_hint_x=0.68
-            )
-            total = text_label(
-                money(sale["total"]),
-                size=15,
-                bold=True,
-                halign="right",
-                color=(0.08, 0.32, 0.78, 1),
-                size_hint_x=0.32
-            )
-
-            row.add_widget(info)
-            row.add_widget(total)
-            self.list_grid.add_widget(row)
 
 
 # ============================================================
@@ -1209,65 +2497,18 @@ class TransactionScreen(Screen):
 # ============================================================
 
 class ReportScreen(Screen):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.app = None
-        self._built = False
 
-    def on_pre_enter(self, *_):
+    def on_enter(self):
+
         self.app = App.get_running_app()
-        if not self._built:
-            self.build_ui()
+
         self.refresh()
 
-    def build_ui(self):
-        self._built = True
-
-        root = BoxLayout(
-            orientation="vertical",
-            padding=dp(12),
-            spacing=dp(12)
-        )
-
-        root.add_widget(text_label(
-            "Laporan",
-            size=23,
-            bold=True,
-            size_hint_y=None,
-            height=dp(52)
-        ))
-
-        card = Card(
-            orientation="vertical",
-            padding=dp(16),
-            size_hint_y=None,
-            height=dp(210)
-        )
-        self.summary = text_label(
-            "Memuat...",
-            size=16,
-            valign="top"
-        )
-        card.add_widget(self.summary)
-        root.add_widget(card)
-
-        export = make_button(
-            "Export CSV",
-            primary=True,
-            height=48
-        )
-        export.bind(on_release=lambda *_: self.export_csv())
-        root.add_widget(export)
-
-        root.add_widget(Widget())
-        self.add_widget(root)
-
-    def refresh(self, *_):
-        if not self._built or self.app is None:
-            return
+    def refresh(self):
 
         try:
-            row = self.app.db.conn.execute(
+
+            rows = self.app.db.conn.execute(
                 """
                 SELECT
                     COUNT(*) n,
@@ -1276,24 +2517,30 @@ class ReportScreen(Screen):
                     COALESCE(SUM(tax),0) tax,
                     COALESCE(SUM(total),0) total
                 FROM sales
-                WHERE date(created_at)=date('now','localtime')
+                WHERE date(created_at)=date('now')
                 """
             ).fetchone()
 
-            self.summary.text = (
-                "HARI INI\n\n"
-                f"Transaksi : {row['n']}\n"
-                f"Subtotal  : {money(row['subtotal'])}\n"
-                f"Diskon    : {money(row['discount'])}\n"
-                f"Pajak     : {money(row['tax'])}\n"
-                f"Penjualan : {money(row['total'])}"
+            self.ids.summary.text = (
+                "PENJUALAN HARI INI\n\n"
+                f"Transaksi     : {rows['n']}\n"
+                f"Subtotal      : {money(rows['subtotal'])}\n"
+                f"Diskon        : {money(rows['discount'])}\n"
+                f"Pajak         : {money(rows['tax'])}\n\n"
+                f"TOTAL         : {money(rows['total'])}"
             )
+
         except Exception as error:
-            self.app.log_error("report_refresh", error)
-            self.summary.text = "Laporan gagal dimuat."
+
+            self.app.log_error(
+                "REPORT_REFRESH",
+                error
+            )
 
     def export_csv(self):
+
         try:
+
             path = os.path.join(
                 self.app.user_data_dir,
                 "sales_export.csv"
@@ -1305,160 +2552,179 @@ class ReportScreen(Screen):
                 newline="",
                 encoding="utf-8-sig"
             ) as file:
-                writer = csv.writer(file)
-                writer.writerow([
-                    "Invoice", "Tanggal", "Subtotal",
-                    "Diskon", "Pajak", "Total",
-                    "Pembayaran", "Dibayar", "Kembalian"
-                ])
 
-                for sale in self.app.db.sales(10000):
-                    writer.writerow([
-                        sale["invoice"],
-                        sale["created_at"],
-                        sale["subtotal"],
-                        sale["discount"],
-                        sale["tax"],
-                        sale["total"],
-                        sale["payment_method"],
-                        sale["paid"],
-                        sale["change_amount"]
-                    ])
+                writer = csv.writer(file)
+
+                writer.writerow(
+                    [
+                        "Invoice",
+                        "Tanggal",
+                        "Subtotal",
+                        "Diskon",
+                        "Pajak",
+                        "Total",
+                        "Pembayaran",
+                        "Dibayar",
+                        "Kembalian"
+                    ]
+                )
+
+                for sale in self.app.db.sales(
+                    10000
+                ):
+
+                    writer.writerow(
+                        [
+                            sale["invoice"],
+                            sale["created_at"],
+                            sale["subtotal"],
+                            sale["discount"],
+                            sale["tax"],
+                            sale["total"],
+                            sale["payment_method"],
+                            sale["paid"],
+                            sale["change_amount"]
+                        ]
+                    )
 
             self.app.notify(
-                f"CSV tersimpan:\n{path}"
+                "CSV berhasil dibuat:\n"
+                +
+                path
             )
 
         except Exception as error:
-            self.app.log_error("export_csv", error)
-            self.app.notify("Export CSV gagal.")
+
+            self.app.log_error(
+                "EXPORT_CSV",
+                error
+            )
+
+            self.app.notify(
+                "Export CSV gagal."
+            )
 
 
 # ============================================================
-# SETTINGS SCREEN
+# SETTINGS
 # ============================================================
 
 class SettingsScreen(Screen):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.app = None
-        self._built = False
 
-    def on_pre_enter(self, *_):
+    def on_enter(self):
+
         self.app = App.get_running_app()
-        if not self._built:
-            self.build_ui()
-        self.load_settings()
 
-    def build_ui(self):
-        self._built = True
+        try:
 
-        root = BoxLayout(
-            orientation="vertical",
-            padding=dp(12),
-            spacing=dp(9)
-        )
+            self.ids.store.text = (
+                self.app.db.setting(
+                    "store_name"
+                )
+            )
 
-        root.add_widget(text_label(
-            "Pengaturan",
-            size=23,
-            bold=True,
-            size_hint_y=None,
-            height=dp(52)
-        ))
+            self.ids.address.text = (
+                self.app.db.setting(
+                    "store_address"
+                )
+            )
 
-        self.store = TextInput(
-            hint_text="Nama usaha",
-            multiline=False,
-            size_hint_y=None,
-            height=dp(44)
-        )
-        self.address = TextInput(
-            hint_text="Alamat / kontak",
-            multiline=False,
-            size_hint_y=None,
-            height=dp(44)
-        )
-        self.footer = TextInput(
-            hint_text="Footer struk",
-            multiline=False,
-            size_hint_y=None,
-            height=dp(44)
-        )
+            self.ids.footer.text = (
+                self.app.db.setting(
+                    "receipt_footer"
+                )
+            )
 
-        root.add_widget(self.store)
-        root.add_widget(self.address)
-        root.add_widget(self.footer)
+            self.ids.paper.text = (
+                self.app.db.setting(
+                    "paper"
+                )
+                or
+                "58mm"
+            )
 
-        self.paper = Spinner(
-            text="58mm",
-            values=("58mm", "80mm"),
-            size_hint_y=None,
-            height=dp(44)
-        )
-        root.add_widget(self.paper)
+        except Exception as error:
 
-        save = make_button(
-            "Simpan Pengaturan",
-            primary=True,
-            height=46
-        )
-        save.bind(on_release=lambda *_: self.save())
-        root.add_widget(save)
-
-        backup = make_button(
-            "Backup Database",
-            height=46
-        )
-        backup.bind(on_release=lambda *_: self.backup())
-        root.add_widget(backup)
-
-        root.add_widget(text_label(
-            "Printer thermal Bluetooth harus sudah dipairing "
-            "melalui pengaturan Android.",
-            size=13,
-            color=(0.38, 0.42, 0.48, 1),
-            size_hint_y=None,
-            height=dp(55)
-        ))
-
-        root.add_widget(Widget())
-        self.add_widget(root)
-
-    def load_settings(self):
-        self.store.text = self.app.db.setting("store_name")
-        self.address.text = self.app.db.setting("store_address")
-        self.footer.text = self.app.db.setting("receipt_footer")
-        self.paper.text = self.app.db.setting("paper") or "58mm"
+            self.app.log_error(
+                "SETTINGS_LOAD",
+                error
+            )
 
     def save(self):
+
         try:
-            self.app.db.set_setting("store_name", self.store.text)
-            self.app.db.set_setting("store_address", self.address.text)
-            self.app.db.set_setting("receipt_footer", self.footer.text)
-            self.app.db.set_setting("paper", self.paper.text)
+
+            self.app.db.set_setting(
+                "store_name",
+                self.ids.store.text
+            )
+
+            self.app.db.set_setting(
+                "store_address",
+                self.ids.address.text
+            )
+
+            self.app.db.set_setting(
+                "receipt_footer",
+                self.ids.footer.text
+            )
+
+            self.app.db.set_setting(
+                "paper",
+                self.ids.paper.text
+            )
 
             self.app.tax_percent = (
-                self.app.db.setting("tax_percent") or "0"
+                self.app.db.setting(
+                    "tax_percent"
+                )
+                or
+                "0"
             )
-            self.app.notify("Pengaturan disimpan.")
+
+            self.app.notify(
+                "Pengaturan berhasil disimpan."
+            )
+
         except Exception as error:
-            self.app.log_error("settings_save", error)
+
+            self.app.log_error(
+                "SETTINGS_SAVE",
+                error
+            )
 
     def backup(self):
+
         try:
+
             self.app.db.conn.commit()
+
             target = os.path.join(
                 self.app.user_data_dir,
                 "KasirQU_backup.db"
             )
-            shutil.copy2(self.app.db.path, target)
-            self.app.notify(
-                f"Backup dibuat:\n{target}"
+
+            shutil.copy2(
+                self.app.db.path,
+                target
             )
+
+            self.app.notify(
+                "Backup database berhasil:\n"
+                +
+                target
+            )
+
         except Exception as error:
-            self.app.log_error("database_backup", error)
-            self.app.notify("Backup database gagal.")
+
+            self.app.log_error(
+                "DATABASE_BACKUP",
+                error
+            )
+
+            self.app.notify(
+                "Backup gagal."
+            )
 
 
 # ============================================================
@@ -1466,372 +2732,573 @@ class SettingsScreen(Screen):
 # ============================================================
 
 class UniversalPOS(App):
+
     tax_percent = StringProperty("0")
+
     last_receipt = None
+
     pending_image = None
-    _activity_callback = None
 
     def __init__(self, **kwargs):
+
         super().__init__(**kwargs)
+
         self.startup_error = None
 
-    def build(self):
-        try:
-            self.title = APP_NAME
+        self.images_dir = ""
 
-            data_dir = os.path.abspath(
-                self.user_data_dir or
-                os.path.join(
-                    os.path.expanduser("~"),
-                    ".kasirqu"
-                )
-            )
-            os.makedirs(data_dir, exist_ok=True)
-
-            self.images_dir = os.path.join(
-                data_dir,
-                "products"
-            )
-            os.makedirs(self.images_dir, exist_ok=True)
-
-            self.db = DB(
-                os.path.join(data_dir, DB_NAME)
-            )
-
-            self.tax_percent = (
-                self.db.setting("tax_percent") or "0"
-            )
-
-            root = self.build_root_ui()
-
-            if root is None:
-                raise RuntimeError(
-                    "Root aplikasi gagal dibuat."
-                )
-
-            return root
-
-        except Exception as error:
-            self.startup_error = error
-            self.log_error(
-                "APPLICATION_STARTUP",
-                error
-            )
-            return self.build_error_screen(error)
-
-    def build_root_ui(self):
-        root = BoxLayout(
-            orientation="vertical"
-        )
-
-        self.sm = SwipeManager(
-            size_hint_y=1
-        )
-
-        self.pos_screen = POSScreen(name="pos")
-        self.products_screen = ProductScreen(name="products")
-        self.transactions_screen = TransactionScreen(name="transactions")
-        self.reports_screen = ReportScreen(name="reports")
-        self.settings_screen = SettingsScreen(name="settings")
-
-        self.sm.add_widget(self.pos_screen)
-        self.sm.add_widget(self.products_screen)
-        self.sm.add_widget(self.transactions_screen)
-        self.sm.add_widget(self.reports_screen)
-        self.sm.add_widget(self.settings_screen)
-
-        root.add_widget(self.sm)
-        root.add_widget(self.build_toolbar())
-
-        return root
-
-    def build_toolbar(self):
-        bar = BoxLayout(
-            size_hint_y=None,
-            height=dp(70),
-            padding=[dp(5), dp(5)],
-            spacing=dp(3)
-        )
-
-        self.nav_buttons = {}
-
-        items = [
-            ("pos", "â–£", "Kasir"),
-            ("products", "â–¤", "Produk"),
-            ("transactions", "â†»", "Riwayat"),
-            ("reports", "â–¥", "Laporan"),
-            ("settings", "âš™", "Pengaturan")
-        ]
-
-        for name, icon, label in items:
-            btn = Button(
-                text=f"{icon}\n{label}",
-                font_size="12sp",
-                bold=True,
-                background_normal="",
-                background_down="",
-                background_color=(1, 1, 1, 1),
-                color=(0.28, 0.32, 0.39, 1),
-                border=(0, 0, 0, 0)
-            )
-            btn.bind(
-                on_release=lambda *_,
-                target=name: self.navigate(target)
-            )
-            self.nav_buttons[name] = btn
-            bar.add_widget(btn)
-
-        Clock.schedule_once(
-            lambda *_: self.update_nav_style("pos"),
-            0
-        )
-
-        return bar
-
-    def update_nav_style(self, active):
-        for name, btn in self.nav_buttons.items():
-            if name == active:
-                btn.background_color = (
-                    0.10, 0.36, 0.86, 1
-                )
-                btn.color = (1, 1, 1, 1)
-            else:
-                btn.background_color = (
-                    1, 1, 1, 1
-                )
-                btn.color = (
-                    0.28, 0.32, 0.39, 1
-                )
-
-    def navigate(self, name):
-        if not hasattr(self, "sm"):
-            return
-
-        names = list(self.sm.screen_names)
-
-        if name not in names:
-            return
-
-        current = self.sm.current
-        if current == name:
-            return
-
-        old_index = names.index(current)
-        new_index = names.index(name)
-
-        self.sm.transition = SlideTransition(
-            direction="left" if new_index > old_index else "right",
-            duration=0.18
-        )
-        self.sm.current = name
-        self.update_nav_style(name)
-
-    def on_start(self):
-        Clock.schedule_once(
-            self.finish_startup,
-            0.35
-        )
-
-    def finish_startup(self, *_):
-        try:
-            if self.startup_error is not None:
-                return
-
-            if not self.root:
-                raise RuntimeError("Root aplikasi tidak tersedia.")
-
-            self.pos_screen.app = self
-            self.pos_screen.refresh_products()
-            self.pos_screen.update_summary()
-
-        except Exception as error:
-            self.startup_error = error
-            self.log_error("FIRST_UI", error)
-
-        finally:
-            self.hide_android_loading_screen()
+        self._activity_callback = None
 
     # --------------------------------------------------------
-    # ERROR
+    # ERROR LOG
     # --------------------------------------------------------
 
-    def log_error(self, location, error):
+    def log_error(
+        self,
+        location,
+        error
+    ):
+
         try:
-            os.makedirs(self.user_data_dir, exist_ok=True)
-            path = os.path.join(
+
+            os.makedirs(
+                self.user_data_dir,
+                exist_ok=True
+            )
+
+            error_path = os.path.join(
                 self.user_data_dir,
                 "KasirQU_error.log"
             )
 
-            with open(path, "a", encoding="utf-8") as file:
+            with open(
+                error_path,
+                "a",
+                encoding="utf-8"
+            ) as file:
+
                 file.write(
-                    "\n\n==============================\n"
+                    "\n\n"
+                    +
+                    "=" * 60
+                    +
+                    "\n"
                 )
-                file.write(datetime.now().isoformat())
-                file.write(f"\nLOCATION: {location}\n")
-                file.write(f"ERROR: {repr(error)}\n")
-                file.write(traceback.format_exc())
+
+                file.write(
+                    datetime.now().isoformat()
+                    +
+                    "\n"
+                )
+
+                file.write(
+                    "LOCATION: "
+                    +
+                    str(location)
+                    +
+                    "\n"
+                )
+
+                file.write(
+                    "ERROR: "
+                    +
+                    repr(error)
+                    +
+                    "\n"
+                )
+
+                file.write(
+                    traceback.format_exc()
+                )
 
         except Exception:
             pass
 
         print(
-            f"KASIRQU ERROR [{location}]:",
+            "KASIRQU ERROR:",
+            location,
             repr(error)
         )
 
+    # --------------------------------------------------------
+    # BUILD
+    # --------------------------------------------------------
+
+    def build(self):
+
+        try:
+
+            data_dir = self.user_data_dir
+
+            if not data_dir:
+
+                data_dir = os.path.join(
+                    os.path.expanduser("~"),
+                    ".kasirqu"
+                )
+
+            data_dir = os.path.abspath(
+                data_dir
+            )
+
+            os.makedirs(
+                data_dir,
+                exist_ok=True
+            )
+
+            self.images_dir = os.path.join(
+                data_dir,
+                "products"
+            )
+
+            os.makedirs(
+                self.images_dir,
+                exist_ok=True
+            )
+
+            database_path = os.path.join(
+                data_dir,
+                DB_NAME
+            )
+
+            self.db = DB(
+                database_path
+            )
+
+            self.tax_percent = (
+                self.db.setting(
+                    "tax_percent"
+                )
+                or
+                "0"
+            )
+
+            root = Builder.load_string(KV)
+
+            if root is None:
+
+                raise RuntimeError(
+                    "Kivy root gagal dibuat."
+                )
+
+            return root
+
+        except Exception as error:
+
+            self.startup_error = error
+
+            self.log_error(
+                "APPLICATION_STARTUP",
+                error
+            )
+
+            return self.build_error_screen(
+                error
+            )
+
+    # --------------------------------------------------------
+    # ERROR SCREEN
+    # --------------------------------------------------------
+
     def build_error_screen(self, error):
+
         root = BoxLayout(
             orientation="vertical",
             padding=dp(24),
             spacing=dp(15)
         )
-        root.add_widget(text_label(
-            APP_NAME,
-            size=27,
-            bold=True,
-            halign="center",
-            size_hint_y=None,
-            height=dp(55)
-        ))
-        root.add_widget(text_label(
-            "Gagal memuat aplikasi.\n\n"
-            f"{type(error).__name__}: {error}\n\n"
-            "Detail tersimpan di KasirQU_error.log",
-            size=15,
-            halign="center"
-        ))
-        return root
 
-    def notify(self, message):
-        try:
-            Popup(
-                title=APP_NAME,
-                content=text_label(
-                    str(message),
-                    size=14,
-                    halign="center"
-                ),
-                size_hint=(0.88, 0.34)
-            ).open()
-        except Exception as error:
-            self.log_error("NOTIFY", error)
+        with root.canvas.before:
 
-    # --------------------------------------------------------
-    # IMAGE
-    # --------------------------------------------------------
+            Color(*BG)
 
-    def product_image_widget(self, stored_path, **kwargs):
-        path = self.resolve_image(stored_path)
+            from kivy.graphics import Rectangle
 
-        if path:
-            img = Image(
-                source=path,
-                allow_stretch=True,
-                keep_ratio=True,
-                **kwargs
+            root._bg = Rectangle(
+                pos=root.pos,
+                size=root.size
             )
-            # Memaksa reload setelah source ditetapkan.
-            Clock.schedule_once(
-                lambda *_: img.reload(),
-                0
-            )
-            return img
 
-        return text_label(
-            "â–£",
-            size=28,
-            halign="center",
-            color=(0.55, 0.58, 0.64, 1),
-            **kwargs
+        root.bind(
+            pos=lambda obj, value:
+            setattr(
+                obj._bg,
+                "pos",
+                value
+            ),
+            size=lambda obj, value:
+            setattr(
+                obj._bg,
+                "size",
+                value
+            )
         )
 
+        root.add_widget(
+            Label(
+                text="KasirQU",
+                color=PRIMARY,
+                font_size="27sp",
+                bold=True,
+                size_hint_y=None,
+                height=dp(55)
+            )
+        )
+
+        detail = Label(
+            text=(
+                "Aplikasi gagal memuat UI.\n\n"
+                +
+                type(error).__name__
+                +
+                ": "
+                +
+                str(error)
+                +
+                "\n\n"
+                "Detail tersimpan di:\n"
+                +
+                os.path.join(
+                    self.user_data_dir,
+                    "KasirQU_error.log"
+                )
+            ),
+            color=TEXT,
+            halign="center",
+            valign="middle"
+        )
+
+        detail.bind(
+            size=lambda widget, value:
+            setattr(
+                widget,
+                "text_size",
+                value
+            )
+        )
+
+        root.add_widget(detail)
+
+        return root
+
+    # --------------------------------------------------------
+    # START
+    # --------------------------------------------------------
+
+    def on_start(self):
+
+        Clock.schedule_once(
+            self.finish_startup,
+            .5
+        )
+
+    def finish_startup(self, *_):
+
+        try:
+
+            if self.startup_error is not None:
+                return
+
+            if not self.root:
+                raise RuntimeError(
+                    "Root aplikasi tidak tersedia."
+                )
+
+            if not hasattr(
+                self.root,
+                "ids"
+            ):
+                raise RuntimeError(
+                    "Root tidak memiliki ids."
+                )
+
+            if "sm" not in self.root.ids:
+
+                raise RuntimeError(
+                    "ScreenManager id 'sm' tidak ditemukan."
+                )
+
+            sm = self.root.ids.sm
+
+            sm.current = "pos"
+
+            pos = sm.get_screen("pos")
+
+            pos.refresh_products()
+
+        except Exception as error:
+
+            self.startup_error = error
+
+            self.log_error(
+                "FIRST_UI",
+                error
+            )
+
+        finally:
+
+            self.hide_android_loading_screen()
+
+    # --------------------------------------------------------
+    # ANDROID LOADING SCREEN
+    # --------------------------------------------------------
+
+    def hide_android_loading_screen(self):
+
+        if platform != "android":
+            return
+
+        try:
+
+            from android import loadingscreen
+
+            loadingscreen.hide_loading_screen()
+
+        except Exception:
+
+            pass
+
+    # --------------------------------------------------------
+    # NAVIGATION
+    # --------------------------------------------------------
+
+    def navigate(self, name):
+
+        try:
+
+            sm = self.root.ids.sm
+
+            names = list(
+                sm.screen_names
+            )
+
+            if name not in names:
+                return
+
+            current = names.index(
+                sm.current
+            )
+
+            target = names.index(
+                name
+            )
+
+            if current == target:
+                return
+
+            sm.transition = SlideTransition(
+                direction=(
+                    "left"
+                    if target > current
+                    else "right"
+                ),
+                duration=.20
+            )
+
+            sm.current = name
+
+        except Exception as error:
+
+            self.log_error(
+                "NAVIGATION",
+                error
+            )
+
+    # --------------------------------------------------------
+    # NOTIFY
+    # --------------------------------------------------------
+
+    def notify(self, message):
+
+        try:
+
+            content = BoxLayout(
+                orientation="vertical",
+                padding=dp(12),
+                spacing=dp(10)
+            )
+
+            label = Label(
+                text=str(message),
+                color=TEXT,
+                halign="center",
+                valign="middle"
+            )
+
+            label.bind(
+                size=lambda widget, value:
+                setattr(
+                    widget,
+                    "text_size",
+                    value
+                )
+            )
+
+            content.add_widget(label)
+
+            close = make_button(
+                "OK",
+                primary=True
+            )
+
+            content.add_widget(close)
+
+            popup = Popup(
+                title=APP_NAME,
+                content=content,
+                size_hint=(.86, .34)
+            )
+
+            close.bind(
+                on_release=popup.dismiss
+            )
+
+            popup.open()
+
+        except Exception as error:
+
+            self.log_error(
+                "NOTIFY",
+                error
+            )
+
+    # ========================================================
+    # IMAGE SYSTEM
+    # ========================================================
+
     def resolve_image(self, path):
+
         if not path:
             return ""
 
         try:
-            # Path lama mungkin relatif. Coba beberapa lokasi.
-            candidates = []
 
-            if os.path.isabs(path):
-                candidates.append(path)
-            else:
-                candidates.append(
-                    os.path.join(self.user_data_dir, path)
-                )
-                candidates.append(path)
+            path = str(path).strip()
 
-            for candidate in candidates:
-                candidate = os.path.abspath(candidate)
-                if os.path.isfile(candidate):
-                    return candidate
+            if not path:
+                return ""
+
+            # Absolute path
+            absolute = os.path.abspath(path)
+
+            if os.path.isfile(absolute):
+                return absolute
+
+            # Filename only
+            filename = os.path.basename(path)
+
+            internal = os.path.join(
+                self.images_dir,
+                filename
+            )
+
+            if os.path.isfile(internal):
+                return internal
+
+            return ""
 
         except Exception as error:
-            self.log_error("RESOLVE_IMAGE", error)
 
-        return ""
+            self.log_error(
+                "RESOLVE_IMAGE",
+                error
+            )
 
-    def open_image_picker(self, selected, preview):
+            return ""
+
+    # --------------------------------------------------------
+    # ANDROID IMAGE PICKER
+    # --------------------------------------------------------
+
+    def open_image_picker(
+        self,
+        selected,
+        preview
+    ):
+
         if platform != "android":
-            self.open_desktop_picker(selected, preview)
+
+            self.open_desktop_picker(
+                selected,
+                preview
+            )
+
             return
 
         try:
+
             from jnius import autoclass
-            from android.activity import bind
 
-            Intent = autoclass("android.content.Intent")
-            intent = Intent(Intent.ACTION_OPEN_DOCUMENT)
-            intent.addCategory(Intent.CATEGORY_OPENABLE)
-            intent.setType("image/*")
+            from android.activity import (
+                bind
+            )
 
-            # Ambil URI yang bisa dipakai lebih lama jika Android mengizinkan.
+            Intent = autoclass(
+                "android.content.Intent"
+            )
+
+            intent = Intent(
+                Intent.ACTION_OPEN_DOCUMENT
+            )
+
+            intent.addCategory(
+                Intent.CATEGORY_OPENABLE
+            )
+
+            intent.setType(
+                "image/*"
+            )
+
+            # Sangat penting:
+            # izin URI tetap dipertahankan jika Android mendukungnya.
             try:
+
                 intent.addFlags(
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION |
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    |
                     Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
                 )
+
             except Exception:
                 pass
 
-            self.pending_image = (selected, preview)
+            self.pending_image = (
+                selected,
+                preview
+            )
 
-            # Hindari bind berkali-kali.
-            try:
-                from android.activity import unbind
-                if self._activity_callback is not None:
-                    unbind(
-                        on_activity_result=self._activity_callback
-                    )
-            except Exception:
-                pass
+            self._activity_callback = (
+                self.on_activity_result
+            )
 
-            def callback(request_code, result_code, data):
-                self.on_activity_result(
-                    request_code, result_code, data
-                )
-
-            self._activity_callback = callback
-            bind(on_activity_result=callback)
+            bind(
+                on_activity_result=
+                self.on_activity_result
+            )
 
             PythonActivity = autoclass(
                 "org.kivy.android.PythonActivity"
             )
+
             PythonActivity.mActivity.startActivityForResult(
                 intent,
                 9001
             )
 
         except Exception as error:
+
             self.log_error(
                 "ANDROID_IMAGE_PICKER",
                 error
             )
-            self.pending_image = None
+
             self.notify(
                 "Pemilih foto Android gagal dibuka."
             )
+
+    # --------------------------------------------------------
+    # ACTIVITY RESULT
+    # --------------------------------------------------------
 
     def on_activity_result(
         self,
@@ -1839,109 +3306,207 @@ class UniversalPOS(App):
         result_code,
         intent
     ):
+
+        if request_code != 9001:
+            return
+
         try:
-            if request_code != 9001:
-                return
 
             if intent is None:
                 return
 
             uri = intent.getData()
+
             if uri is None:
                 return
 
-            temp_path = self.copy_content_uri(uri)
+            # Pertahankan izin URI jika tersedia.
+            try:
 
-            if not temp_path:
-                self.notify(
-                    "Foto dipilih, tetapi tidak dapat dibaca."
+                from jnius import autoclass
+
+                IntentClass = autoclass(
+                    "android.content.Intent"
                 )
-                return
 
-            if self.pending_image:
-                selected, preview = self.pending_image
-                selected["path"] = temp_path
+                resolver = (
+                    autoclass(
+                        "org.kivy.android.PythonActivity"
+                    )
+                    .mActivity
+                    .getContentResolver()
+                )
+
+                flags = (
+                    IntentClass.FLAG_GRANT_READ_URI_PERMISSION
+                )
+
+                resolver.takePersistableUriPermission(
+                    uri,
+                    flags
+                )
+
+            except Exception:
+
+                pass
+
+            temp_path = (
+                self.copy_content_uri(
+                    uri
+                )
+            )
+
+            if (
+                temp_path
+                and
+                self.pending_image
+            ):
+
+                selected, preview = (
+                    self.pending_image
+                )
+
+                selected["path"] = (
+                    temp_path
+                )
+
                 preview.source = temp_path
+
                 preview.reload()
 
         except Exception as error:
+
             self.log_error(
                 "ACTIVITY_RESULT_IMAGE",
                 error
             )
+
+            self.notify(
+                "Foto tidak dapat dibaca."
+            )
+
         finally:
-            self.pending_image = None
 
             try:
-                from android.activity import unbind
-                if self._activity_callback is not None:
-                    unbind(
-                        on_activity_result=self._activity_callback
-                    )
+
+                from android.activity import (
+                    unbind
+                )
+
+                unbind(
+                    on_activity_result=
+                    self.on_activity_result
+                )
+
             except Exception:
                 pass
 
-            self._activity_callback = None
+            self.pending_image = None
+
+    # --------------------------------------------------------
+    # COPY CONTENT URI
+    # --------------------------------------------------------
 
     def copy_content_uri(self, uri):
+
         input_stream = None
         output_stream = None
 
         try:
-            from jnius import autoclass, jarray
+
+            from jnius import (
+                autoclass,
+                jarray
+            )
 
             PythonActivity = autoclass(
                 "org.kivy.android.PythonActivity"
             )
+
             resolver = (
-                PythonActivity.mActivity
+                PythonActivity
+                .mActivity
                 .getContentResolver()
             )
 
-            input_stream = resolver.openInputStream(uri)
+            input_stream = (
+                resolver.openInputStream(
+                    uri
+                )
+            )
+
             if input_stream is None:
+
                 raise RuntimeError(
                     "Content URI tidak dapat dibaca."
                 )
 
             mime = None
-            try:
-                mime_value = resolver.getType(uri)
-                if mime_value:
-                    mime = str(mime_value)
-            except Exception:
-                pass
 
-            extensions = {
+            try:
+
+                mime = resolver.getType(uri)
+
+                if mime:
+                    mime = str(mime)
+
+            except Exception:
+
+                mime = None
+
+            extension_map = {
                 "image/jpeg": ".jpg",
                 "image/jpg": ".jpg",
                 "image/png": ".png",
                 "image/webp": ".webp",
-                "image/gif": ".gif"
+                "image/gif": ".gif",
+                "image/bmp": ".bmp"
             }
-            extension = extensions.get(mime, ".jpg")
 
-            filename = (
-                "product_" +
-                datetime.now().strftime("%Y%m%d%H%M%S%f") +
-                extension
-            )
-            target = os.path.join(
-                self.images_dir,
-                filename
+            extension = extension_map.get(
+                mime,
+                ".jpg"
             )
 
             FileOutputStream = autoclass(
                 "java.io.FileOutputStream"
             )
-            output_stream = FileOutputStream(target)
 
-            buffer = jarray("b", [0] * 8192)
+            filename = (
+                "product_"
+                +
+                datetime.now().strftime(
+                    "%Y%m%d%H%M%S%f"
+                )
+                +
+                extension
+            )
+
+            target = os.path.join(
+                self.images_dir,
+                filename
+            )
+
+            output_stream = FileOutputStream(
+                target
+            )
+
+            buffer = jarray(
+                "b",
+                [0] * 8192
+            )
 
             while True:
-                count = input_stream.read(buffer)
+
+                count = (
+                    input_stream.read(
+                        buffer
+                    )
+                )
+
                 if count <= 0:
                     break
+
                 output_stream.write(
                     buffer,
                     0,
@@ -1951,6 +3516,7 @@ class UniversalPOS(App):
             output_stream.flush()
 
             if not os.path.isfile(target):
+
                 raise RuntimeError(
                     "File foto tidak berhasil dibuat."
                 )
@@ -1958,187 +3524,265 @@ class UniversalPOS(App):
             return target
 
         except Exception as error:
+
             self.log_error(
                 "COPY_CONTENT_URI",
                 error
             )
+
             return ""
 
         finally:
+
             if output_stream is not None:
+
                 try:
                     output_stream.close()
                 except Exception:
                     pass
 
             if input_stream is not None:
+
                 try:
                     input_stream.close()
                 except Exception:
                     pass
 
-    def open_desktop_picker(self, selected, preview):
+    # --------------------------------------------------------
+    # DESKTOP PICKER
+    # --------------------------------------------------------
+
+    def open_desktop_picker(
+        self,
+        selected,
+        preview
+    ):
+
         try:
+
             chooser = FileChooserListView(
                 path=os.path.expanduser("~"),
                 filters=[
                     "*.png",
                     "*.jpg",
                     "*.jpeg",
-                    "*.webp"
+                    "*.webp",
+                    "*.gif"
                 ]
+            )
+
+            buttons = BoxLayout(
+                size_hint_y=None,
+                height=dp(46),
+                spacing=dp(7)
+            )
+
+            select_btn = make_button(
+                "Pilih",
+                primary=True
+            )
+
+            cancel_btn = make_button(
+                "Batal"
+            )
+
+            buttons.add_widget(
+                select_btn
+            )
+
+            buttons.add_widget(
+                cancel_btn
             )
 
             root = BoxLayout(
                 orientation="vertical"
             )
-            root.add_widget(chooser)
 
-            row = BoxLayout(
-                size_hint_y=None,
-                height=dp(46)
+            root.add_widget(
+                chooser
             )
-            select_btn = make_button(
-                "Pilih",
-                primary=True,
-                height=46
+
+            root.add_widget(
+                buttons
             )
-            cancel_btn = make_button(
-                "Batal",
-                height=46
-            )
-            row.add_widget(select_btn)
-            row.add_widget(cancel_btn)
-            root.add_widget(row)
 
             popup = Popup(
                 title="Pilih Foto Produk",
                 content=root,
-                size_hint=(0.94, 0.88)
+                size_hint=(.94, .88)
             )
 
             def choose(*_):
+
                 if not chooser.selection:
-                    self.notify("Pilih foto terlebih dahulu.")
+
+                    self.notify(
+                        "Pilih foto terlebih dahulu."
+                    )
+
                     return
 
-                selected["path"] = chooser.selection[0]
-                preview.source = selected["path"]
+                selected["path"] = (
+                    chooser.selection[0]
+                )
+
+                preview.source = (
+                    selected["path"]
+                )
+
                 preview.reload()
+
                 popup.dismiss()
 
-            select_btn.bind(on_release=choose)
-            cancel_btn.bind(on_release=popup.dismiss)
+            select_btn.bind(
+                on_release=choose
+            )
+
+            cancel_btn.bind(
+                on_release=popup.dismiss
+            )
+
             popup.open()
 
         except Exception as error:
+
             self.log_error(
                 "DESKTOP_IMAGE_PICKER",
                 error
             )
 
+    # --------------------------------------------------------
+    # SAVE SELECTED IMAGE
+    # --------------------------------------------------------
+
     def save_selected_image(self, path):
+
         if not path:
             return ""
 
         try:
-            source = os.path.abspath(path)
+
+            source = os.path.abspath(
+                str(path)
+            )
 
             if not os.path.isfile(source):
                 return ""
 
-            images_dir = os.path.abspath(self.images_dir)
+            images_dir = os.path.abspath(
+                self.images_dir
+            )
 
-            # Jika sudah berada di folder internal aplikasi,
-            # jangan copy ulang.
-            if source == images_dir or source.startswith(
-                images_dir + os.sep
+            os.makedirs(
+                images_dir,
+                exist_ok=True
+            )
+
+            # Sudah internal
+            if (
+                source == images_dir
+                or
+                source.startswith(
+                    images_dir + os.sep
+                )
             ):
+
                 return source
 
-            extension = os.path.splitext(source)[1].lower()
+            extension = (
+                os.path.splitext(source)[1]
+                .lower()
+            )
+
             if extension not in (
-                ".jpg", ".jpeg", ".png", ".webp", ".gif"
+                ".jpg",
+                ".jpeg",
+                ".png",
+                ".webp",
+                ".gif",
+                ".bmp"
             ):
+
                 extension = ".jpg"
 
             destination = os.path.join(
                 images_dir,
-                "product_" +
-                datetime.now().strftime("%Y%m%d%H%M%S%f") +
+                "product_"
+                +
+                datetime.now().strftime(
+                    "%Y%m%d%H%M%S%f"
+                )
+                +
                 extension
             )
 
-            shutil.copy2(source, destination)
+            shutil.copy2(
+                source,
+                destination
+            )
 
-            if not os.path.isfile(destination):
+            if not os.path.isfile(
+                destination
+            ):
+
                 return ""
 
             return destination
 
         except Exception as error:
+
             self.log_error(
                 "SAVE_SELECTED_IMAGE",
                 error
             )
+
             return ""
 
-    # --------------------------------------------------------
-    # ANDROID LOADING SCREEN
-    # --------------------------------------------------------
-
-    def hide_android_loading_screen(self):
-        if platform != "android":
-            return
-
-        try:
-            from android import loadingscreen
-            loadingscreen.hide_loading_screen()
-        except Exception:
-            # Tidak dianggap fatal. Beberapa versi python-for-android
-            # tidak menyediakan API ini.
-            pass
-
-    # --------------------------------------------------------
+    # ========================================================
     # PRINT
-    # --------------------------------------------------------
+    # ========================================================
 
     def print_or_offer(self, invoice):
+
         content = BoxLayout(
             orientation="vertical",
             spacing=dp(8),
             padding=dp(10)
         )
 
-        content.add_widget(text_label(
-            f"Transaksi {invoice} berhasil.\n"
-            "Cetak struk sekarang?",
-            size=15,
-            halign="center"
-        ))
+        content.add_widget(
+            text_label(
+                f"Transaksi {invoice} berhasil.\n"
+                "Cetak struk sekarang?",
+                size=15,
+                halign="center"
+            )
+        )
 
         row = BoxLayout(
             size_hint_y=None,
             height=dp(46),
             spacing=dp(7)
         )
+
         bluetooth = make_button(
             "Bluetooth",
-            primary=True,
-            height=46
+            primary=True
         )
+
         no_print = make_button(
-            "Tidak",
-            height=46
+            "Tidak"
         )
+
         row.add_widget(bluetooth)
         row.add_widget(no_print)
+
         content.add_widget(row)
 
         popup = Popup(
             title="Struk",
             content=content,
-            size_hint=(0.88, 0.40)
+            size_hint=(.88, .40)
         )
 
         bluetooth.bind(
@@ -2147,16 +3791,28 @@ class UniversalPOS(App):
                 self.bluetooth_printer_dialog()
             )
         )
-        no_print.bind(on_release=popup.dismiss)
+
+        no_print.bind(
+            on_release=popup.dismiss
+        )
+
         popup.open()
 
+    # --------------------------------------------------------
+    # BLUETOOTH DEVICES
+    # --------------------------------------------------------
+
     def bluetooth_printer_dialog(self):
+
         devices = self.get_bonded_devices()
 
         if not devices:
+
             self.notify(
-                "Tidak ada printer Bluetooth yang sudah dipairing."
+                "Tidak ada printer Bluetooth "
+                "yang sudah dipairing."
             )
+
             return
 
         content = BoxLayout(
@@ -2168,14 +3824,16 @@ class UniversalPOS(App):
         popup = Popup(
             title="Pilih Printer Bluetooth",
             content=content,
-            size_hint=(0.92, 0.80)
+            size_hint=(.92, .80)
         )
 
         for name, address in devices:
+
             btn = make_button(
                 f"{name}\n{address}",
                 height=60
             )
+
             btn.bind(
                 on_release=lambda *_,
                 addr=address: (
@@ -2183,76 +3841,124 @@ class UniversalPOS(App):
                     self.print_bluetooth(addr)
                 )
             )
+
             content.add_widget(btn)
 
         popup.open()
 
     def get_bonded_devices(self):
+
         if platform != "android":
             return []
 
         try:
+
             from jnius import autoclass
 
             BluetoothAdapter = autoclass(
                 "android.bluetooth.BluetoothAdapter"
             )
-            adapter = BluetoothAdapter.getDefaultAdapter()
+
+            adapter = (
+                BluetoothAdapter
+                .getDefaultAdapter()
+            )
 
             if adapter is None:
                 return []
 
+            devices = (
+                adapter
+                .getBondedDevices()
+                .toArray()
+            )
+
             result = []
-            devices = adapter.getBondedDevices().toArray()
 
             for device in devices:
+
                 try:
-                    result.append((
-                        str(device.getName() or "Bluetooth Device"),
-                        str(device.getAddress())
-                    ))
+
+                    name = str(
+                        device.getName()
+                        or
+                        "Bluetooth Device"
+                    )
+
+                    address = str(
+                        device.getAddress()
+                    )
+
+                    result.append(
+                        (
+                            name,
+                            address
+                        )
+                    )
+
                 except Exception:
                     pass
 
             return result
 
         except Exception as error:
+
             self.log_error(
                 "BLUETOOTH_DEVICES",
                 error
             )
+
             return []
 
+    # --------------------------------------------------------
+    # BLUETOOTH PRINT
+    # --------------------------------------------------------
+
     def print_bluetooth(self, address):
+
         if not self.last_receipt:
             return
 
         socket = None
 
         try:
+
             from jnius import autoclass
 
             BluetoothAdapter = autoclass(
                 "android.bluetooth.BluetoothAdapter"
             )
+
             UUID = autoclass(
                 "java.util.UUID"
             )
 
-            adapter = BluetoothAdapter.getDefaultAdapter()
+            adapter = (
+                BluetoothAdapter
+                .getDefaultAdapter()
+            )
+
             if adapter is None:
+
                 raise RuntimeError(
                     "Bluetooth tidak tersedia."
                 )
 
-            device = adapter.getRemoteDevice(address)
+            device = (
+                adapter.getRemoteDevice(
+                    address
+                )
+            )
 
             uuid = UUID.fromString(
                 "00001101-0000-1000-8000-00805F9B34FB"
             )
 
-            socket = device.createRfcommSocketToServiceRecord(
-                uuid
+            socket = (
+                device
+                .createRfcommSocketToServiceRecord(
+                    uuid
+                )
             )
 
             try:
@@ -2262,29 +3968,48 @@ class UniversalPOS(App):
 
             socket.connect()
 
-            output = socket.getOutputStream()
-            output.write(self.build_receipt_bytes())
+            output = (
+                socket.getOutputStream()
+            )
+
+            output.write(
+                self.build_receipt_bytes()
+            )
+
             output.flush()
 
-            self.notify("Struk berhasil dikirim.")
+            self.notify(
+                "Struk berhasil dikirim."
+            )
 
         except Exception as error:
+
             self.log_error(
                 "BLUETOOTH_PRINT",
                 error
             )
+
             self.notify(
-                "Gagal mencetak:\n" + str(error)
+                "Gagal mencetak:\n"
+                +
+                str(error)
             )
 
         finally:
+
             if socket is not None:
+
                 try:
                     socket.close()
                 except Exception:
                     pass
 
+    # ========================================================
+    # RECEIPT
+    # ========================================================
+
     def build_receipt_bytes(self):
+
         (
             invoice,
             subtotal,
@@ -2297,60 +4022,143 @@ class UniversalPOS(App):
             cart
         ) = self.last_receipt
 
-        paper = self.db.setting("paper") or "58mm"
-        width = 32 if paper == "58mm" else 48
+        paper = (
+            self.db.setting("paper")
+            or
+            "58mm"
+        )
 
-        store = self.db.setting("store_name") or APP_NAME
-        address = self.db.setting("store_address") or ""
-        footer = self.db.setting("receipt_footer") or "Terima kasih"
+        width = (
+            32
+            if paper == "58mm"
+            else 48
+        )
+
+        store = (
+            self.db.setting(
+                "store_name"
+            )
+            or
+            APP_NAME
+        )
+
+        address = (
+            self.db.setting(
+                "store_address"
+            )
+            or
+            ""
+        )
+
+        footer = (
+            self.db.setting(
+                "receipt_footer"
+            )
+            or
+            "Terima kasih"
+        )
 
         lines = [
             store.center(width),
             address.center(width),
             "-" * width,
             invoice,
-            datetime.now().strftime("%d/%m/%Y %H:%M").center(width),
+            datetime.now().strftime(
+                "%d/%m/%Y %H:%M"
+            ).center(width),
             "-" * width
         ]
 
         for item in cart:
-            name = str(item["name"])[:width]
+
+            name = str(
+                item["name"]
+            )[:width]
+
             lines.append(name)
+
             lines.append(
                 "  "
-                f'{item["qty"]:g} x {money(item["price"])}'
+                +
+                f'{item["qty"]:g}'
+                +
+                " x "
+                +
+                money(
+                    item["price"]
+                )
+                +
                 " = "
-                f'{money(item["qty"] * item["price"])}'
+                +
+                money(
+                    item["qty"]
+                    *
+                    item["price"]
+                )
             )
 
-        lines.extend([
-            "-" * width,
-            f"Subtotal : {money(subtotal)}",
-            f"Diskon   : {money(discount)}",
-            f"Pajak    : {money(tax)}",
-            f"TOTAL    : {money(total)}",
-            f"Bayar    : {money(paid)}",
-            f"Kembali  : {money(change)}",
-            f"Metode   : {method}",
-            "-" * width,
-            footer.center(width),
-            "",
-            ""
-        ])
+        lines.extend(
+            [
+                "-" * width,
+                f"Subtotal : {money(subtotal)}",
+                f"Diskon   : {money(discount)}",
+                f"Pajak    : {money(tax)}",
+                f"TOTAL    : {money(total)}",
+                f"Bayar    : {money(paid)}",
+                f"Kembali  : {money(change)}",
+                f"Metode   : {method}",
+                "-" * width,
+                footer.center(width),
+                "",
+                ""
+            ]
+        )
 
-        raw = "\n".join(lines).encode(
-            "utf-8", "replace"
+        raw = "\n".join(
+            lines
+        ).encode(
+            "utf-8",
+            "replace"
         )
 
         return (
-            b"\x1b\x40" +
-            b"\x1b\x45\x01" +
-            raw +
-            b"\x1b\x45\x00" +
-            b"\n\n\n" +
+            b"\x1b\x40"
+            +
+            b"\x1b\x45\x01"
+            +
+            raw
+            +
+            b"\x1b\x45\x00"
+            +
+            b"\n\n\n"
+            +
             b"\x1d\x56\x00"
         )
 
 
+# ============================================================
+# ENTRY POINT
+# ============================================================
+
 if __name__ == "__main__":
-    UniversalPOS().run()
+
+    try:
+
+        UniversalPOS().run()
+
+    except Exception as error:
+
+        try:
+
+            app = UniversalPOS()
+
+            app.log_error(
+                "FATAL_ENTRY_POINT",
+                error
+            )
+
+        except Exception:
+
+            pass
+
+        raise
