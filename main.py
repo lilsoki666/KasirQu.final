@@ -10,12 +10,13 @@ from decimal import Decimal, ROUND_HALF_UP
 from kivy.app import App
 from kivy.lang import Builder
 from kivy.metrics import dp
+from kivy.core.window import Window
 from kivy.properties import StringProperty, NumericProperty
 from kivy.uix.screenmanager import Screen, ScreenManager, SlideTransition
 from kivy.uix.popup import Popup
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.gridlayout import GridLayout
-from kivy.uix.button import Button
+from kivy.uix.button import Button, ButtonBehavior
 from kivy.uix.label import Label
 from kivy.uix.image import Image
 from kivy.uix.textinput import TextInput
@@ -147,6 +148,54 @@ class ModernButton(Button):
 
         if "height" not in kwargs:
             self.height = dp(44)
+
+
+# ============================================================
+# ICON NAVIGATION
+# ============================================================
+
+class IconNavButton(ButtonBehavior, BoxLayout):
+
+    def __init__(self, name, icon, **kwargs):
+        super().__init__(orientation="vertical", spacing=dp(2), **kwargs)
+        self.nav_name = name
+        self.icon_path = icon
+        self.size_hint_y = None
+        self.height = dp(72)
+        self.padding = [dp(3), dp(4), dp(3), dp(3)]
+
+        self.icon = Image(
+            source=icon,
+            size_hint_y=None,
+            height=dp(42),
+            allow_stretch=True,
+            keep_ratio=True
+        )
+        self.label = Label(
+            text=name,
+            font_size="10sp",
+            bold=True,
+            color=MUTED,
+            size_hint_y=None,
+            height=dp(20),
+            halign="center",
+            valign="middle"
+        )
+        self.label.bind(size=lambda w, v: setattr(w, "text_size", v))
+        self.add_widget(self.icon)
+        self.add_widget(self.label)
+
+        with self.canvas.before:
+            Color(1, 1, 1, 1)
+            self._nav_bg = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(10)])
+        self.bind(pos=self._update_bg, size=self._update_bg)
+
+    def _update_bg(self, *_):
+        self._nav_bg.pos = self.pos
+        self._nav_bg.size = self.size
+
+    def on_release(self):
+        App.get_running_app().navigate(self.nav_name)
 
 
 # ============================================================
@@ -812,6 +861,26 @@ KV = r'''
 
             height: dp(44)
 
+        TextInput:
+
+            id: tax
+
+            hint_text: "Pajak (%) - contoh 11"
+
+            input_filter: "float"
+
+            multiline: False
+
+            size_hint_y: None
+
+            height: dp(44)
+
+            padding: [dp(12), dp(10)]
+
+            background_normal: ""
+
+            background_color: (1,1,1,1)
+
 
         PrimaryButton:
 
@@ -829,6 +898,14 @@ KV = r'''
             on_release:
 
                 root.backup()
+
+        SoftButton:
+
+            text: "REFRESH DATA"
+
+            on_release:
+
+                root.on_enter()
 
 
         Label:
@@ -908,49 +985,35 @@ BoxLayout:
                 size: self.size
 
 
-        NavButton:
+        IconNavButton:
 
-            text: "▣\\nKasir"
+            name: "Kasir"
 
-            on_release:
+            icon: app.asset_path("assets/icons/kasir.png")
 
-                app.navigate("pos")
+        IconNavButton:
 
+            name: "Produk"
 
-        NavButton:
+            icon: app.asset_path("assets/icons/produk.png")
 
-            text: "▤\\nProduk"
+        IconNavButton:
 
-            on_release:
+            name: "Riwayat"
 
-                app.navigate("products")
+            icon: app.asset_path("assets/icons/riwayat.png")
 
+        IconNavButton:
 
-        NavButton:
+            name: "Laporan"
 
-            text: "↻\\nRiwayat"
+            icon: app.asset_path("assets/icons/laporan.png")
 
-            on_release:
+        IconNavButton:
 
-                app.navigate("transactions")
+            name: "Pengaturan"
 
-
-        NavButton:
-
-            text: "▥\\nLaporan"
-
-            on_release:
-
-                app.navigate("reports")
-
-
-        NavButton:
-
-            text: "⚙\\nPengaturan"
-
-            on_release:
-
-                app.navigate("settings")
+            icon: app.asset_path("assets/icons/pengaturan.png")
 '''
 
 
@@ -994,31 +1057,33 @@ class DB:
                 cost REAL NOT NULL DEFAULT 0,
                 stock REAL NOT NULL DEFAULT 0,
                 image TEXT DEFAULT '',
-                active INTEGER DEFAULT 1,
-                created_at TEXT NOT NULL
+                active INTEGER NOT NULL DEFAULT 1,
+                line_total REAL NOT NULL DEFAULT 0,
+                created_at TEXT DEFAULT ''
             );
 
             CREATE TABLE IF NOT EXISTS sales(
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 invoice TEXT UNIQUE NOT NULL,
-                subtotal REAL NOT NULL,
-                discount REAL NOT NULL,
-                tax REAL NOT NULL,
-                total REAL NOT NULL,
-                payment_method TEXT NOT NULL,
-                paid REAL NOT NULL,
-                change_amount REAL NOT NULL,
+                subtotal REAL NOT NULL DEFAULT 0,
+                discount REAL NOT NULL DEFAULT 0,
+                tax REAL NOT NULL DEFAULT 0,
+                total REAL NOT NULL DEFAULT 0,
+                payment_method TEXT NOT NULL DEFAULT 'Tunai',
+                paid REAL NOT NULL DEFAULT 0,
+                change_amount REAL NOT NULL DEFAULT 0,
                 created_at TEXT NOT NULL
             );
 
             CREATE TABLE IF NOT EXISTS sale_items(
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 sale_id INTEGER NOT NULL,
-                product_id INTEGER NOT NULL,
+                product_id INTEGER,
                 name TEXT NOT NULL,
-                qty REAL NOT NULL,
-                price REAL NOT NULL,
-                line_total REAL NOT NULL
+                qty REAL NOT NULL DEFAULT 1,
+                price REAL NOT NULL DEFAULT 0,
+                line_total REAL NOT NULL DEFAULT 0,
+                FOREIGN KEY(sale_id) REFERENCES sales(id)
             );
 
             CREATE TABLE IF NOT EXISTS settings(
@@ -1027,6 +1092,21 @@ class DB:
             );
             """
         )
+
+        # Migrate databases created by older KasirQU versions.
+        columns = {row[1] for row in cursor.execute("PRAGMA table_info(products)").fetchall()}
+        migrations = {
+            "sku": "ALTER TABLE products ADD COLUMN sku TEXT DEFAULT ''",
+            "category": "ALTER TABLE products ADD COLUMN category TEXT DEFAULT ''",
+            "cost": "ALTER TABLE products ADD COLUMN cost REAL NOT NULL DEFAULT 0",
+            "stock": "ALTER TABLE products ADD COLUMN stock REAL NOT NULL DEFAULT 0",
+            "image": "ALTER TABLE products ADD COLUMN image TEXT DEFAULT ''",
+            "active": "ALTER TABLE products ADD COLUMN active INTEGER NOT NULL DEFAULT 1",
+            "created_at": "ALTER TABLE products ADD COLUMN created_at TEXT DEFAULT ''",
+        }
+        for name, sql in migrations.items():
+            if name not in columns:
+                cursor.execute(sql)
 
         defaults = {
             "store_name": "KasirQU",
@@ -1037,12 +1117,8 @@ class DB:
         }
 
         for key, value in defaults.items():
-
             cursor.execute(
-                """
-                INSERT OR IGNORE INTO settings(key,value)
-                VALUES(?,?)
-                """,
+                "INSERT OR IGNORE INTO settings(key,value) VALUES(?,?)",
                 (key, value)
             )
 
@@ -1273,6 +1349,21 @@ class DB:
 
             raise
 
+    def update_product(self, product_id, name, sku, category, price, cost, stock, image):
+        self.conn.execute(
+            """UPDATE products SET name=?, sku=?, category=?, price=?, cost=?, stock=?, image=? WHERE id=?""",
+            (name, sku, category, float(price), float(cost), float(stock), image or "", product_id)
+        )
+        self.conn.commit()
+
+    def sale(self, sale_id):
+        return self.conn.execute("SELECT * FROM sales WHERE id=?", (sale_id,)).fetchone()
+
+    def sale_items(self, sale_id):
+        return self.conn.execute(
+            "SELECT * FROM sale_items WHERE sale_id=? ORDER BY id", (sale_id,)
+        ).fetchall()
+
     def sales(self, limit=100):
 
         return self.conn.execute(
@@ -1393,6 +1484,7 @@ class POSScreen(Screen):
                         allow_stretch=True,
                         keep_ratio=True
                     )
+                    product_image.reload()
 
                     card.add_widget(product_image)
 
@@ -1792,7 +1884,8 @@ class POSScreen(Screen):
         popup = Popup(
             title="Keranjang Belanja",
             content=content,
-            size_hint=(.94, .88)
+            size_hint=(.94, None),
+            size=(dp(430), min(dp(560), max(dp(360), Window.height - dp(100))))
         )
 
         clear.bind(
@@ -2014,7 +2107,8 @@ class POSScreen(Screen):
         popup = Popup(
             title="Pembayaran",
             content=content,
-            size_hint=(.92, .70)
+            size_hint=(.92, None),
+            size=(dp(430), min(dp(410), max(dp(330), Window.height - dp(100))))
         )
 
         cancel.bind(
@@ -2178,6 +2272,7 @@ class ProductScreen(Screen):
                         allow_stretch=True,
                         keep_ratio=True
                     )
+                    image.reload()
 
                     row.add_widget(image)
 
@@ -2219,6 +2314,14 @@ class ProductScreen(Screen):
 
                 row.add_widget(info)
 
+                edit_button = make_button("EDIT", primary=True, height=40)
+                edit_button.size_hint_x = None
+                edit_button.width = dp(62)
+                edit_button.bind(
+                    on_release=lambda *_ , product=product: self.open_editor(product)
+                )
+                row.add_widget(edit_button)
+
                 box.add_widget(row)
 
         except Exception as error:
@@ -2228,7 +2331,7 @@ class ProductScreen(Screen):
                 error
             )
 
-    def open_editor(self):
+    def open_editor(self, product=None):
 
         content = BoxLayout(
             orientation="vertical",
@@ -2285,6 +2388,14 @@ class ProductScreen(Screen):
             "path": ""
         }
 
+        if product:
+            for key in ("name", "sku", "category", "price", "cost", "stock"):
+                fields[key].text = str(product[key] if product[key] is not None else "")
+            selected["path"] = self.app.resolve_image(product["image"])
+            if selected["path"]:
+                preview.source = selected["path"]
+                preview.reload()
+
         buttons = BoxLayout(
             size_hint_y=None,
             height=dp(46),
@@ -2304,9 +2415,11 @@ class ProductScreen(Screen):
         content.add_widget(buttons)
 
         popup = Popup(
-            title="Tambah Produk",
+            title="Edit Produk" if product else "Tambah Produk",
             content=content,
-            size_hint=(.94, .92)
+            size_hint=(.94, None),
+            size=(dp(430), dp(560)),
+            auto_dismiss=True
         )
 
         choose.bind(
@@ -2353,29 +2466,33 @@ class ProductScreen(Screen):
 
                         return
 
-                self.app.db.add_product(
-                    name,
-                    fields["sku"].text.strip(),
-                    fields["category"].text.strip(),
-                    safe_float(
-                        fields["price"].text
-                    ),
-                    safe_float(
-                        fields["cost"].text
-                    ),
-                    safe_float(
-                        fields["stock"].text
-                    ),
-                    image_path
-                )
+                if product:
+                    self.app.db.update_product(
+                        product["id"], name,
+                        fields["sku"].text.strip(),
+                        fields["category"].text.strip(),
+                        safe_float(fields["price"].text),
+                        safe_float(fields["cost"].text),
+                        safe_float(fields["stock"].text),
+                        image_path or selected.get("path", "")
+                    )
+                    message = "Produk berhasil diperbarui."
+                else:
+                    self.app.db.add_product(
+                        name,
+                        fields["sku"].text.strip(),
+                        fields["category"].text.strip(),
+                        safe_float(fields["price"].text),
+                        safe_float(fields["cost"].text),
+                        safe_float(fields["stock"].text),
+                        image_path
+                    )
+                    message = "Produk berhasil ditambahkan."
 
                 popup.dismiss()
-
                 self.refresh()
-
-                self.app.notify(
-                    "Produk berhasil ditambahkan."
-                )
+                self.app.root.ids.sm.get_screen("pos").refresh_products()
+                self.app.notify(message)
 
             except Exception as error:
 
@@ -2482,6 +2599,12 @@ class TransactionScreen(Screen):
                 row.add_widget(info)
                 row.add_widget(total)
 
+                detail = make_button("DETAIL", primary=True, height=42)
+                detail.size_hint_x = None
+                detail.width = dp(72)
+                detail.bind(on_release=lambda *_ , sale_id=sale["id"]: self.open_detail(sale_id))
+                row.add_widget(detail)
+
                 box.add_widget(row)
 
         except Exception as error:
@@ -2490,6 +2613,36 @@ class TransactionScreen(Screen):
                 "TRANSACTION_REFRESH",
                 error
             )
+
+    def open_detail(self, sale_id):
+        sale = self.app.db.sale(sale_id)
+        items = self.app.db.sale_items(sale_id)
+        if not sale:
+            self.app.notify("Transaksi tidak ditemukan.")
+            return
+
+        content = BoxLayout(orientation="vertical", spacing=dp(7), padding=dp(12))
+        details = [f"{sale['invoice']}", f"{sale['created_at']}", ""]
+        for item in items:
+            details.append(f"{item['name']}  x{item['qty']:g}  {money(item['line_total'])}")
+        details += ["", f"Subtotal: {money(sale['subtotal'])}", f"Diskon: {money(sale['discount'])}", f"Pajak: {money(sale['tax'])}", f"TOTAL: {money(sale['total'])}", f"Pembayaran: {sale['payment_method']}"]
+        if sale['payment_method'] == "Tunai":
+            details += [f"Dibayar: {money(sale['paid'])}", f"Kembalian: {money(sale['change_amount'])}"]
+
+        label = text_label("\n".join(details), size=13)
+        content.add_widget(label)
+        buttons = BoxLayout(size_hint_y=None, height=dp(44), spacing=dp(7))
+        close = make_button("Tutup")
+        print_btn = make_button("Cetak Ulang", primary=True)
+        buttons.add_widget(close); buttons.add_widget(print_btn)
+        content.add_widget(buttons)
+        popup = Popup(title="Detail Transaksi", content=content, size_hint=(.92, None), size=(dp(430), dp(470)))
+        close.bind(on_release=popup.dismiss)
+
+        cart = [dict(item) for item in items]
+        self.app.last_receipt = (sale['invoice'], sale['subtotal'], sale['discount'], sale['tax'], sale['total'], sale['payment_method'], sale['paid'], sale['change_amount'], cart)
+        print_btn.bind(on_release=lambda *_: (popup.dismiss(), self.app.bluetooth_printer_dialog()))
+        popup.open()
 
 
 # ============================================================
@@ -2515,7 +2668,8 @@ class ReportScreen(Screen):
                     COALESCE(SUM(subtotal),0) subtotal,
                     COALESCE(SUM(discount),0) discount,
                     COALESCE(SUM(tax),0) tax,
-                    COALESCE(SUM(total),0) total
+                    COALESCE(SUM(total),0) total,
+                    COALESCE((SELECT SUM(qty) FROM sale_items si JOIN sales sx ON sx.id=si.sale_id WHERE date(sx.created_at)=date('now')),0) items_sold
                 FROM sales
                 WHERE date(created_at)=date('now')
                 """
@@ -2526,7 +2680,8 @@ class ReportScreen(Screen):
                 f"Transaksi     : {rows['n']}\n"
                 f"Subtotal      : {money(rows['subtotal'])}\n"
                 f"Diskon        : {money(rows['discount'])}\n"
-                f"Pajak         : {money(rows['tax'])}\n\n"
+                f"Pajak         : {money(rows['tax'])}\n"
+                f"Barang terjual: {float(rows['items_sold']):g} item\n\n"
                 f"TOTAL         : {money(rows['total'])}"
             )
 
@@ -2636,11 +2791,10 @@ class SettingsScreen(Screen):
             )
 
             self.ids.paper.text = (
-                self.app.db.setting(
-                    "paper"
-                )
-                or
-                "58mm"
+                self.app.db.setting("paper") or "58mm"
+            )
+            self.ids.tax.text = (
+                self.app.db.setting("tax_percent") or "0"
             )
 
         except Exception as error:
@@ -2670,8 +2824,10 @@ class SettingsScreen(Screen):
             )
 
             self.app.db.set_setting(
-                "paper",
-                self.ids.paper.text
+                "paper", self.ids.paper.text
+            )
+            self.app.db.set_setting(
+                "tax_percent", str(max(0, safe_float(self.ids.tax.text)))
             )
 
             self.app.tax_percent = (
@@ -3143,10 +3299,12 @@ class UniversalPOS(App):
 
             content.add_widget(close)
 
+            line_count = max(1, str(message).count("\n") + 1)
             popup = Popup(
                 title=APP_NAME,
                 content=content,
-                size_hint=(.86, .34)
+                size_hint=(.88, None),
+                size=(dp(400), min(dp(260), dp(112 + line_count * 20)))
             )
 
             close.bind(
@@ -3165,6 +3323,13 @@ class UniversalPOS(App):
     # ========================================================
     # IMAGE SYSTEM
     # ========================================================
+
+    def asset_path(self, relative):
+        try:
+            base = os.path.dirname(os.path.abspath(__file__))
+            return os.path.join(base, relative)
+        except Exception:
+            return relative
 
     def resolve_image(self, path):
 
@@ -3609,7 +3774,8 @@ class UniversalPOS(App):
             popup = Popup(
                 title="Pilih Foto Produk",
                 content=root,
-                size_hint=(.94, .88)
+                size_hint=(.94, None),
+                size=(dp(430), min(dp(620), max(dp(420), Window.height - dp(100))))
             )
 
             def choose(*_):
@@ -3782,7 +3948,8 @@ class UniversalPOS(App):
         popup = Popup(
             title="Struk",
             content=content,
-            size_hint=(.88, .40)
+            size_hint=(.88, None),
+            size=(dp(400), dp(190))
         )
 
         bluetooth.bind(
@@ -3824,7 +3991,8 @@ class UniversalPOS(App):
         popup = Popup(
             title="Pilih Printer Bluetooth",
             content=content,
-            size_hint=(.92, .80)
+            size_hint=(.92, None),
+            size=(dp(430), min(dp(500), max(dp(300), Window.height - dp(100))))
         )
 
         for name, address in devices:

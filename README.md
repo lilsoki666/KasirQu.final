@@ -16,3 +16,14 @@ Versi revisi startup-stability dan Android image picker.
 
 ## Build
 GitHub → Actions → Build KasirQU APK → Run workflow.
+
+
+## Versi 1.6.0 – Perbaikan UI & Fitur
+- Toolbar memakai icon PNG dari `assets/icons/` (256x256).
+- Popup dibuat lebih ringkas dan responsif terhadap ukuran layar.
+- Form produk mendukung tambah dan edit produk.
+- Foto produk disimpan ke folder internal aplikasi dan ditampilkan kembali.
+- Riwayat transaksi dapat dibuka untuk melihat detail dan cetak ulang.
+- Laporan menampilkan jumlah barang terjual selain omzet.
+- Pengaturan ditambah input pajak dan refresh data.
+- Database lama dimigrasikan otomatis untuk kolom produk, penjualan, dan item penjualan.
