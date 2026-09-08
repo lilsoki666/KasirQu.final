@@ -1937,273 +1937,167 @@ class POSScreen(Screen):
             self.app.notify("Scanner tidak tersedia. Anda tetap bisa memakai scanner Bluetooth/USB atau mengetik barcode lalu Enter.")
 
     def open_cart_popup(self):
+        """Open the shopping cart using conservative Kivy layouts.
 
-        if not self.cart_data:
+        This method intentionally avoids dynamic size_hint/height combinations
+        that can trigger Android/Kivy layout exceptions while a Popup is opening.
+        """
+        try:
+            if not self.cart_data:
+                self.app.notify("Keranjang masih kosong.")
+                return
 
-            self.app.notify(
-                "Keranjang masih kosong."
+            content = BoxLayout(
+                orientation="vertical",
+                spacing=dp(8),
+                padding=dp(10),
             )
 
-            return
-
-        content = BoxLayout(
-            orientation="vertical",
-            spacing=dp(8),
-            padding=dp(10)
-        )
-
-        scroll = ScrollView(
-            do_scroll_x=False,
-            size_hint_y=None,
-            height=dp(180)
-        )
-
-        rows = GridLayout(
-            cols=1,
-            spacing=dp(6),
-            size_hint_y=None
-        )
-
-        rows.bind(
-            minimum_height=rows.setter(
-                "height"
+            scroll = ScrollView(
+                do_scroll_x=False,
+                size_hint_y=1,
             )
-        )
+            rows = GridLayout(
+                cols=1,
+                spacing=dp(6),
+                size_hint_y=None,
+            )
+            rows.bind(minimum_height=rows.setter("height"))
+            scroll.add_widget(rows)
+            content.add_widget(scroll)
 
-        discount = TextInput(
-            hint_text="Rp 0",
-            text="0",
-            input_filter="float",
-            multiline=False,
-            size_hint_x=None,
-            width=dp(120),
-            size_hint_y=None,
-            height=dp(36),
-            padding=[dp(8), dp(7)],
-            background_normal="",
-            background_color=(0.97, 0.98, 1, 1),
-            foreground_color=TEXT,
-            cursor_color=PRIMARY
-        )
-
-        discount_row = BoxLayout(
-            orientation="horizontal",
-            size_hint_y=None,
-            height=dp(40),
-            spacing=dp(8)
-        )
-        discount_row.add_widget(Label(
-            text="Diskon", color=MUTED, font_size="12sp",
-            halign="left", valign="middle"
-        ))
-        discount_row.add_widget(discount)
-
-        total_label = Label(
-            text="TOTAL  Rp 0",
-            size_hint_y=None,
-            height=dp(40),
-            font_size="19sp",
-            bold=True,
-            color=PRIMARY
-        )
-
-        def redraw(*_):
-
-            rows.clear_widgets()
-
-            for index, item in enumerate(
-                self.cart_data
-            ):
-
-                row = Card(
-                    orientation="horizontal",
-                    size_hint_y=None,
-                    height=dp(58),
-                    padding=dp(5),
-                    spacing=dp(4)
-                )
-
-                name = Label(
-                    text=(
-                        f'{item["name"]}\n'
-                        f'{item["qty"]:g} x '
-                        f'{money(item["price"])}'
-                    ),
-                    color=TEXT,
-                    halign="left",
-                    valign="middle"
-                )
-
-                name.bind(
-                    size=lambda widget, value:
-                    setattr(
-                        widget,
-                        "text_size",
-                        value
-                    )
-                )
-
-                row.add_widget(name)
-
-                minus = make_button(
-                    "-",
-                    height=42
-                )
-
-                plus = make_button(
-                    "+",
-                    primary=True,
-                    height=42
-                )
-
-                delete = make_button(
-                    "×",
-                    height=42
-                )
-
-                minus.size_hint_x = None
-                plus.size_hint_x = None
-                delete.size_hint_x = None
-
-                minus.width = dp(40)
-                plus.width = dp(40)
-                delete.width = dp(40)
-
-                minus.bind(
-                    on_release=lambda *_,
-                    index=index:
-                    self.change_qty(
-                        index,
-                        -1,
-                        redraw
-                    )
-                )
-
-                plus.bind(
-                    on_release=lambda *_,
-                    index=index:
-                    self.change_qty(
-                        index,
-                        1,
-                        redraw
-                    )
-                )
-
-                delete.bind(
-                    on_release=lambda *_,
-                    index=index:
-                    self.remove_item(
-                        index,
-                        redraw
-                    )
-                )
-
-                row.add_widget(minus)
-                row.add_widget(plus)
-                row.add_widget(delete)
-
-                rows.add_widget(row)
-
-            # Give the cart enough room to be comfortable, while keeping very long
-            # carts scrollable. One or a few products should never collapse into a
-            # tiny dialog.
-                content_height = max(dp(150), min(dp(420), rows.minimum_height + dp(12)))
-            scroll.height = content_height
-
-            _, _, _, total = (
-                self.calculate_total(
-                    discount.text
-                )
+            discount = TextInput(
+                hint_text="Rp 0",
+                text="0",
+                input_filter="float",
+                multiline=False,
+                size_hint=(1, None),
+                height=dp(36),
+                padding=[dp(8), dp(7)],
+                background_normal="",
+                background_color=(0.97, 0.98, 1, 1),
+                foreground_color=TEXT,
+                cursor_color=PRIMARY,
             )
 
-            total_label.text = (
-                f"TOTAL  {money(total)}"
+            discount_row = BoxLayout(
+                orientation="horizontal",
+                size_hint_y=None,
+                height=dp(42),
+                spacing=dp(8),
+            )
+            discount_label = Label(
+                text="Diskon",
+                color=MUTED,
+                font_size="12sp",
+                size_hint_x=None,
+                width=dp(58),
+                halign="left",
+                valign="middle",
+            )
+            discount_row.add_widget(discount_label)
+            discount_row.add_widget(discount)
+
+            total_label = Label(
+                text="TOTAL  Rp 0",
+                color=PRIMARY,
+                font_size="18sp",
+                bold=True,
+                size_hint_x=1,
+                halign="center",
+                valign="middle",
             )
 
-        discount.bind(text=redraw)
+            summary = GridLayout(
+                cols=2,
+                size_hint_y=None,
+                height=dp(46),
+                spacing=dp(8),
+            )
+            summary.add_widget(discount_row)
+            total_box = AnchorLayout(anchor_x="center", anchor_y="center")
+            total_box.add_widget(total_label)
+            summary.add_widget(total_box)
+            content.add_widget(summary)
 
-        scroll.add_widget(rows)
+            pay = make_button("BAYAR", primary=True, height=46)
+            content.add_widget(pay)
 
-        content.add_widget(scroll)
+            def redraw(*_):
+                try:
+                    rows.clear_widgets()
+                    for index, item in enumerate(list(self.cart_data)):
+                        row = Card(
+                            orientation="horizontal",
+                            size_hint_y=None,
+                            height=dp(58),
+                            padding=dp(5),
+                            spacing=dp(4),
+                        )
+                        name = Label(
+                            text=f'{item.get("name", "Produk")}\n{item.get("qty", 0):g} x {money(item.get("price", 0))}',
+                            color=TEXT,
+                            halign="left",
+                            valign="middle",
+                        )
+                        name.bind(size=lambda w, v: setattr(w, "text_size", v))
+                        row.add_widget(name)
 
-        # Ringkasan dibuat dua kolom yang seimbang: diskon tetap dekat
-        # sisi kiri, sedangkan total tidak menempel ke tepi kanan.
-        summary_row = GridLayout(
-            cols=2,
-            size_hint_y=None,
-            height=dp(48),
-            spacing=dp(8),
-            padding=[dp(2), 0, dp(2), 0]
-        )
-        discount_row.size_hint = (1, None)
-        discount_row.height = dp(40)
-        summary_row.add_widget(discount_row)
+                        for symbol, delta, primary in (("-", -1, False), ("+", 1, True), ("×", 0, False)):
+                            btn = make_button(symbol, primary=primary, height=42)
+                            btn.size_hint_x = None
+                            btn.width = dp(40)
+                            if delta:
+                                btn.bind(on_release=lambda *_a, i=index, d=delta: self.change_qty(i, d, redraw))
+                            else:
+                                btn.bind(on_release=lambda *_a, i=index: self.remove_item(i, redraw))
+                            row.add_widget(btn)
+                        rows.add_widget(row)
 
-        total_box = AnchorLayout(
-            anchor_x="center",
-            anchor_y="center",
-            size_hint_x=1
-        )
-        total_label.size_hint = (1, None)
-        total_label.height = dp(40)
-        total_label.halign = "center"
-        total_label.valign = "middle"
-        total_label.text_size = (None, None)
-        total_box.add_widget(total_label)
-        summary_row.add_widget(total_box)
-        content.add_widget(summary_row)
+                    total = self.calculate_total(discount.text or "0")[3]
+                    total_label.text = f"TOTAL  {money(total)}"
+                except Exception as error:
+                    self.app.log_error("CART_REDRAW", error)
+                    self.app.notify("Gagal menampilkan isi keranjang.")
 
-        pay = make_button(
-            "BAYAR",
-            primary=True,
-            height=46
-        )
-        content.add_widget(pay)
+            def payment(*_):
+                try:
+                    discount_value = discount.text or "0"
+                    popup.dismiss()
+                    Clock.schedule_once(lambda *_dt: self.open_payment_popup(discount_value), 0.05)
+                except Exception as error:
+                    self.app.log_error("OPEN_PAYMENT", error)
+                    self.app.notify("Gagal membuka pembayaran.")
 
-        popup = style_popup(Popup(
-            title="Keranjang Belanja",
-            content=content,
-            size_hint=(None, None),
-            size=(min(dp(520), Window.width * 0.94), min(dp(520), Window.height * 0.82)),
-            auto_dismiss=True
-        ))
+            discount.bind(text=redraw)
+            pay.bind(on_release=payment)
 
-        # Keep cart dialog sizing independent from BoxLayout.minimum_height.
-        # This avoids a Kivy layout timing crash when the popup is opened.
-        def _size_cart_popup(*_):
-            try:
-                width = min(dp(520), max(dp(320), Window.width * 0.94))
-                max_height = Window.height * 0.82
-                desired = scroll.height + dp(48) + dp(46) + dp(42) + dp(70)
-                height = min(max_height, max(dp(360), desired))
-                popup.size = (width, height)
-            except Exception as error:
-                self.app.log_error("CART_POPUP_SIZE", error)
+            popup = style_popup(Popup(
+                title="Keranjang Belanja",
+                content=content,
+                size_hint=(None, None),
+                size=(min(dp(520), Window.width * 0.94), min(dp(560), Window.height * 0.82)),
+                auto_dismiss=True,
+            ))
 
-        Clock.schedule_once(_size_cart_popup, 0)
-        Clock.schedule_once(_size_cart_popup, 0.08)
+            def size_popup(*_):
+                try:
+                    width = min(dp(520), max(dp(320), Window.width * 0.94))
+                    rows_h = min(dp(390), max(dp(150), rows.minimum_height + dp(8)))
+                    desired = rows_h + dp(46) + dp(42) + dp(46) + dp(58)
+                    height = min(Window.height * 0.82, max(dp(340), desired))
+                    popup.size = (width, height)
+                except Exception as error:
+                    self.app.log_error("CART_POPUP_SIZE", error)
 
-        def payment(*_):
+            redraw()
+            popup.open()
+            Clock.schedule_once(size_popup, 0.05)
+            Clock.schedule_once(size_popup, 0.15)
 
-            discount_value = discount.text or "0"
-
-            # Tax is intentionally not shown in the cart popup.
-            # open_payment_popup calculates it from the application setting.
-            popup.dismiss()
-
-            try:
-                self.open_payment_popup(discount_value)
-            except Exception as error:
-                self.app.log_error("OPEN_PAYMENT", error)
-                self.app.notify("Gagal membuka pembayaran:\n" + str(error))
-
-        pay.bind(
-            on_release=payment
-        )
-
-        popup.open()
-
-        redraw()
+        except Exception as error:
+            self.app.log_error("OPEN_CART", error)
+            self.app.notify("Keranjang gagal dibuka. Silakan coba lagi.")
 
     def change_qty(
         self,
