@@ -156,39 +156,67 @@ class ModernButton(Button):
 
 class IconNavButton(ButtonBehavior, BoxLayout):
 
-    def __init__(self, name="", icon="", **kwargs):
+    nav_name = StringProperty("")
+    label_text = StringProperty("")
+    icon_path = StringProperty("")
+
+    def __init__(self, **kwargs):
+        # Do not require constructor positional arguments. Kivy's KV parser
+        # creates this widget first and applies `name`/`icon` as properties.
         super().__init__(orientation="vertical", spacing=dp(2), **kwargs)
-        self.nav_name = name
-        self.icon_path = icon
+
         self.size_hint_y = None
-        self.height = dp(72)
-        self.padding = [dp(3), dp(4), dp(3), dp(3)]
+        self.height = dp(78)
+        self.padding = [dp(3), dp(3), dp(3), dp(3)]
+        self.size_hint_x = 1
 
         self.icon = Image(
-            source=icon,
-            size_hint_y=None,
-            height=dp(42),
+            source=self.icon_path,
+            size_hint=(1, None),
+            height=dp(46),
             allow_stretch=True,
             keep_ratio=True
         )
+
         self.label = Label(
-            text=name,
+            text=self.label_text,
             font_size="10sp",
             bold=True,
             color=MUTED,
-            size_hint_y=None,
-            height=dp(20),
+            size_hint=(1, None),
+            height=dp(22),
             halign="center",
             valign="middle"
         )
         self.label.bind(size=lambda w, v: setattr(w, "text_size", v))
+
         self.add_widget(self.icon)
         self.add_widget(self.label)
 
         with self.canvas.before:
             Color(1, 1, 1, 1)
-            self._nav_bg = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(10)])
+            self._nav_bg = RoundedRectangle(
+                pos=self.pos, size=self.size, radius=[dp(10)]
+            )
+
         self.bind(pos=self._update_bg, size=self._update_bg)
+        self.bind(label_text=self._sync_label_text, icon_path=self._sync_icon)
+
+        Clock.schedule_once(self._sync_widgets, 0)
+
+    def _sync_label_text(self, *_):
+        if hasattr(self, "label"):
+            self.label.text = self.label_text
+
+    def _sync_icon(self, *_):
+        if hasattr(self, "icon"):
+            self.icon.source = self.icon_path
+            self.icon.reload()
+
+    def _sync_widgets(self, *_):
+        self._sync_label_text()
+        self._sync_icon()
+        self._update_bg()
 
     def _update_bg(self, *_):
         self._nav_bg.pos = self.pos
@@ -965,7 +993,7 @@ BoxLayout:
 
         size_hint_y: None
 
-        height: dp(72)
+        height: dp(88)
 
         padding: dp(5)
 
@@ -987,33 +1015,43 @@ BoxLayout:
 
         IconNavButton:
 
-            name: "Kasir"
+            nav_name: "pos"
 
-            icon: app.asset_path("assets/icons/kasir.png")
+            label_text: "Kasir"
 
-        IconNavButton:
-
-            name: "Produk"
-
-            icon: app.asset_path("assets/icons/produk.png")
+            icon_path: app.asset_path("assets/icons/kasir.png")
 
         IconNavButton:
 
-            name: "Riwayat"
+            nav_name: "products"
 
-            icon: app.asset_path("assets/icons/riwayat.png")
+            label_text: "Produk"
 
-        IconNavButton:
-
-            name: "Laporan"
-
-            icon: app.asset_path("assets/icons/laporan.png")
+            icon_path: app.asset_path("assets/icons/produk.png")
 
         IconNavButton:
 
-            name: "Pengaturan"
+            nav_name: "transactions"
 
-            icon: app.asset_path("assets/icons/pengaturan.png")
+            label_text: "Riwayat"
+
+            icon_path: app.asset_path("assets/icons/riwayat.png")
+
+        IconNavButton:
+
+            nav_name: "reports"
+
+            label_text: "Laporan"
+
+            icon_path: app.asset_path("assets/icons/laporan.png")
+
+        IconNavButton:
+
+            nav_name: "settings"
+
+            label_text: "Pengaturan"
+
+            icon_path: app.asset_path("assets/icons/pengaturan.png")
 '''
 
 
