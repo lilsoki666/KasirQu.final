@@ -403,33 +403,34 @@ KV = r'''
                 size: self.size
 
 
+        Label:
+
+            text: "KasirQU"
+
+            color: (.07,.09,.13,1)
+
+            font_size: "24sp"
+
+            bold: True
+
+            size_hint_y: None
+
+            height: dp(42)
+
+            halign: "center"
+
+            valign: "middle"
+
+            text_size: self.size
+
+
         BoxLayout:
 
             size_hint_y: None
 
-            height: dp(50)
+            height: dp(48)
 
-            spacing: dp(8)
-
-
-            Label:
-
-                text: "KasirQU"
-
-                color: (.07,.09,.13,1)
-
-                font_size: "23sp"
-
-                bold: True
-
-                size_hint_x: .34
-
-                halign: "left"
-
-                valign: "middle"
-
-                text_size: self.size
-
+            padding: [dp(24), 0, dp(24), 0]
 
             TextInput:
 
@@ -548,7 +549,7 @@ KV = r'''
                 text_size: self.size
 
 
-            SoftButton:
+            PrimaryButton:
 
                 text: "KERANJANG"
 
@@ -756,23 +757,15 @@ KV = r'''
             height: dp(205)
 
 
-            Label:
+            BoxLayout:
 
                 id: summary
 
-                text: "Memuat..."
+                orientation: "vertical"
 
-                color: (.08,.11,.16,1)
+                spacing: dp(3)
 
-                font_size: "16sp"
-
-                bold: True
-
-                halign: "left"
-
-                valign: "top"
-
-                text_size: self.size
+                size_hint_y: 1
 
 
         PrimaryButton:
@@ -908,6 +901,15 @@ KV = r'''
             background_normal: ""
 
             background_color: (1,1,1,1)
+
+
+        PrimaryButton:
+
+            text: "HUBUNGKAN PRINTER BLUETOOTH"
+
+            on_release:
+
+                root.open_printer()
 
 
         PrimaryButton:
@@ -1391,6 +1393,13 @@ class DB:
         self.conn.execute(
             """UPDATE products SET name=?, sku=?, category=?, price=?, cost=?, stock=?, image=? WHERE id=?""",
             (name, sku, category, float(price), float(cost), float(stock), image or "", product_id)
+        )
+        self.conn.commit()
+
+    def delete_product(self, product_id):
+        self.conn.execute(
+            "UPDATE products SET active=0 WHERE id=?",
+            (product_id,)
         )
         self.conn.commit()
 
@@ -1938,28 +1947,27 @@ class POSScreen(Screen):
         scroll.add_widget(rows)
 
         content.add_widget(scroll)
-        content.add_widget(discount_row)
-        content.add_widget(total_label)
 
-        buttons = BoxLayout(
+        summary_row = BoxLayout(
             size_hint_y=None,
-            height=dp(46),
-            spacing=dp(7)
+            height=dp(48),
+            spacing=dp(10)
         )
-
-        clear = make_button(
-            "Kosongkan"
-        )
+        discount_row.size_hint_y = None
+        discount_row.height = dp(42)
+        summary_row.add_widget(discount_row)
+        total_label.size_hint_x = .52
+        total_label.halign = "right"
+        total_label.text_size = (None, None)
+        summary_row.add_widget(total_label)
+        content.add_widget(summary_row)
 
         pay = make_button(
             "BAYAR",
-            primary=True
+            primary=True,
+            height=46
         )
-
-        buttons.add_widget(clear)
-        buttons.add_widget(pay)
-
-        content.add_widget(buttons)
+        content.add_widget(pay)
 
         popup = style_popup(Popup(
             title="Keranjang Belanja",
@@ -1967,15 +1975,8 @@ class POSScreen(Screen):
             size_hint=(None, None),
             size=(dp(360), dp(360))
         ))
-        fit_popup(popup, content, min_width=dp(340), max_width=dp(500),
-                  min_height=dp(380), max_height_ratio=0.90, extra_height=dp(62))
-
-        clear.bind(
-            on_release=lambda *_: (
-                self.clear_cart(),
-                popup.dismiss()
-            )
-        )
+        fit_popup(popup, content, min_width=dp(360), max_width=dp(520),
+                  min_height=dp(430), max_height_ratio=0.90, extra_height=dp(70))
 
         def payment(*_):
 
@@ -2279,9 +2280,7 @@ class POSScreen(Screen):
                     f"Transaksi {invoice} berhasil."
                 )
 
-                self.app.print_or_offer(
-                    invoice
-                )
+                # Printer setup is now managed from Pengaturan.
 
             except Exception as error:
 
@@ -2408,6 +2407,16 @@ class ProductScreen(Screen):
                 )
                 row.add_widget(edit_button)
 
+                delete_button = make_button("HAPUS", primary=False, height=40)
+                delete_button.size_hint_x = None
+                delete_button.width = dp(66)
+                delete_button.background_color = (0.78, 0.12, 0.12, 1)
+                delete_button.color = (1, 1, 1, 1)
+                delete_button.bind(
+                    on_release=lambda *_ , product=product: self.confirm_delete(product)
+                )
+                row.add_widget(delete_button)
+
                 box.add_widget(row)
 
         except Exception as error:
@@ -2416,6 +2425,35 @@ class ProductScreen(Screen):
                 "PRODUCT_REFRESH",
                 error
             )
+
+    def confirm_delete(self, product):
+        content = BoxLayout(orientation="vertical", spacing=dp(10), padding=dp(12))
+        content.add_widget(text_label(
+            f"Hapus produk \"{product['name']}\"?\nProduk tidak akan tampil lagi di kasir.",
+            size=14, halign="center"
+        ))
+        row = BoxLayout(size_hint_y=None, height=dp(44), spacing=dp(8))
+        cancel = make_button("Batal")
+        remove = make_button("HAPUS", primary=False)
+        remove.background_color = (0.78, 0.12, 0.12, 1)
+        remove.color = (1, 1, 1, 1)
+        row.add_widget(cancel); row.add_widget(remove)
+        content.add_widget(row)
+        popup = style_popup(Popup(title="Hapus Produk", content=content, size_hint=(None, None), size=(dp(360), dp(190))))
+        fit_popup(popup, content, min_width=dp(320), max_width=dp(460), min_height=dp(175), max_height_ratio=.55, extra_height=dp(52))
+        cancel.bind(on_release=popup.dismiss)
+        def do_delete(*_):
+            try:
+                self.app.db.delete_product(product["id"])
+                popup.dismiss()
+                self.refresh()
+                self.app.root.ids.sm.get_screen("pos").refresh_products()
+                self.app.notify("Produk berhasil dihapus.")
+            except Exception as error:
+                self.app.log_error("DELETE_PRODUCT", error)
+                self.app.notify("Produk gagal dihapus.")
+        remove.bind(on_release=do_delete)
+        popup.open()
 
     def open_editor(self, product=None):
 
@@ -2763,15 +2801,32 @@ class ReportScreen(Screen):
                 """
             ).fetchone()
 
-            self.ids.summary.text = (
-                "PENJUALAN HARI INI\n\n"
-                f"Transaksi     : {rows['n']}\n"
-                f"Subtotal      : {money(rows['subtotal'])}\n"
-                f"Diskon        : {money(rows['discount'])}\n"
-                f"Pajak         : {money(rows['tax'])}\n"
-                f"Barang terjual: {float(rows['items_sold']):g} item\n\n"
-                f"TOTAL         : {money(rows['total'])}"
-            )
+            box = self.ids.summary
+            box.clear_widgets()
+            header = text_label("PENJUALAN HARI INI", size=16, halign="center")
+            header.bold = True
+            header.size_hint_y = None
+            header.height = dp(30)
+            box.add_widget(header)
+            grid = GridLayout(cols=2, spacing=dp(2), size_hint_y=None)
+            grid.bind(minimum_height=grid.setter("height"))
+            report_rows = [
+                ("Transaksi", str(rows['n'])),
+                ("Subtotal", money(rows['subtotal'])),
+                ("Diskon", money(rows['discount'])),
+                ("Pajak", money(rows['tax'])),
+                ("Barang terjual", f"{float(rows['items_sold']):g} item"),
+                ("TOTAL", money(rows['total'])),
+            ]
+            for label_text, value_text in report_rows:
+                l = text_label(label_text + "  :", size=14, halign="left")
+                r = text_label(value_text, size=14, halign="right")
+                l.size_hint_y = None; l.height = dp(25)
+                r.size_hint_y = None; r.height = dp(25)
+                if label_text == "TOTAL":
+                    l.bold = True; r.bold = True; r.color = PRIMARY
+                grid.add_widget(l); grid.add_widget(r)
+            box.add_widget(grid)
 
         except Exception as error:
 
@@ -2891,6 +2946,13 @@ class SettingsScreen(Screen):
                 "SETTINGS_LOAD",
                 error
             )
+
+    def open_printer(self):
+        try:
+            self.app.bluetooth_printer_dialog()
+        except Exception as error:
+            self.app.log_error("SETTINGS_PRINTER", error)
+            self.app.notify("Pengaturan printer gagal dibuka.")
 
     def save(self):
 
