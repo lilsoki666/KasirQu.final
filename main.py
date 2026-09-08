@@ -484,9 +484,9 @@ KV = r'''
 
                 id: products
 
-                cols: 2
+                cols: 4
 
-                spacing: dp(10)
+                spacing: dp(8)
 
                 padding: dp(2)
 
@@ -1484,6 +1484,27 @@ def style_popup(popup, compact=True):
     return popup
 
 
+def fit_popup(popup, content, min_width=dp(300), max_width=dp(460),
+              min_height=dp(150), max_height_ratio=0.88, extra_height=dp(58)):
+    """Size dialogs from their actual content, capped to the screen."""
+    def _fit(_dt):
+        try:
+            width = min(max_width, max(min_width, Window.width * 0.92))
+            # BoxLayout.minimum_height is reliable after its first layout pass.
+            wanted = content.minimum_height + extra_height
+            height = min(
+                max_height_ratio * Window.height,
+                max(min_height, wanted)
+            )
+            popup.size_hint = (None, None)
+            popup.size = (width, height)
+        except Exception:
+            pass
+    Clock.schedule_once(_fit, 0)
+    Clock.schedule_once(_fit, 0.08)
+    return popup
+
+
 # ============================================================
 # POS SCREEN
 # ============================================================
@@ -1515,9 +1536,9 @@ class POSScreen(Screen):
                 card = Card(
                     orientation="vertical",
                     size_hint_y=None,
-                    height=dp(205),
-                    padding=dp(8),
-                    spacing=dp(5)
+                    height=dp(172),
+                    padding=dp(5),
+                    spacing=dp(3)
                 )
 
                 image_path = self.app.resolve_image(
@@ -1529,7 +1550,7 @@ class POSScreen(Screen):
                     product_image = Image(
                         source=image_path,
                         size_hint_y=None,
-                        height=dp(110),
+                        height=dp(82),
                         allow_stretch=True,
                         keep_ratio=True
                     )
@@ -1542,7 +1563,7 @@ class POSScreen(Screen):
                     placeholder = Label(
                         text="FOTO",
                         size_hint_y=None,
-                        height=dp(110),
+                        height=dp(82),
                         color=MUTED,
                         font_size="14sp",
                         bold=True
@@ -1560,7 +1581,7 @@ class POSScreen(Screen):
                         f'{float(product["stock"]):g}'
                     ),
                     color=TEXT,
-                    font_size="13sp",
+                    font_size="10.5sp",
                     bold=True,
                     halign="center",
                     valign="middle"
@@ -1580,7 +1601,7 @@ class POSScreen(Screen):
                 button = make_button(
                     "+ Tambah",
                     primary=True,
-                    height=36
+                    height=32
                 )
 
                 button.bind(
@@ -1743,7 +1764,9 @@ class POSScreen(Screen):
         )
 
         scroll = ScrollView(
-            do_scroll_x=False
+            do_scroll_x=False,
+            size_hint_y=None,
+            height=dp(70)
         )
 
         rows = GridLayout(
@@ -1759,24 +1782,32 @@ class POSScreen(Screen):
         )
 
         discount = TextInput(
-            hint_text="Diskon",
+            hint_text="Rp 0",
             text="0",
             input_filter="float",
             multiline=False,
+            size_hint_x=None,
+            width=dp(120),
             size_hint_y=None,
-            height=dp(42)
+            height=dp(36),
+            padding=[dp(8), dp(7)],
+            background_normal="",
+            background_color=(0.97, 0.98, 1, 1),
+            foreground_color=TEXT,
+            cursor_color=PRIMARY
         )
 
-        tax = TextInput(
-            hint_text="Pajak %",
-            text=str(
-                self.app.tax_percent
-            ),
-            input_filter="float",
-            multiline=False,
+        discount_row = BoxLayout(
+            orientation="horizontal",
             size_hint_y=None,
-            height=dp(42)
+            height=dp(40),
+            spacing=dp(8)
         )
+        discount_row.add_widget(Label(
+            text="Diskon", color=MUTED, font_size="12sp",
+            halign="left", valign="middle"
+        ))
+        discount_row.add_widget(discount)
 
         total_label = Label(
             text="TOTAL  Rp 0",
@@ -1884,10 +1915,13 @@ class POSScreen(Screen):
 
                 rows.add_widget(row)
 
+            # Show only as much cart content as needed, while keeping long carts scrollable.
+            content_height = max(dp(64), min(dp(300), rows.minimum_height + dp(4)))
+            scroll.height = content_height
+
             _, _, _, total = (
                 self.calculate_total(
-                    discount.text,
-                    tax.text
+                    discount.text
                 )
             )
 
@@ -1899,15 +1933,10 @@ class POSScreen(Screen):
             text=redraw
         )
 
-        tax.bind(
-            text=redraw
-        )
-
         scroll.add_widget(rows)
 
         content.add_widget(scroll)
-        content.add_widget(discount)
-        content.add_widget(tax)
+        content.add_widget(discount_row)
         content.add_widget(total_label)
 
         buttons = BoxLayout(
@@ -1933,9 +1962,11 @@ class POSScreen(Screen):
         popup = style_popup(Popup(
             title="Keranjang Belanja",
             content=content,
-            size_hint=(.94, None),
-            size=(dp(430), min(dp(500), max(dp(340), Window.height * .78)))
+            size_hint=(None, None),
+            size=(dp(360), dp(360))
         ))
+        fit_popup(popup, content, min_width=dp(320), max_width=dp(470),
+                  min_height=dp(250), max_height_ratio=0.86, extra_height=dp(58))
 
         clear.bind(
             on_release=lambda *_: (
@@ -1952,8 +1983,7 @@ class POSScreen(Screen):
             popup.dismiss()
 
             self.open_payment_popup(
-                discount_value,
-                tax_value
+                discount_value
             )
 
         pay.bind(
@@ -2014,7 +2044,7 @@ class POSScreen(Screen):
     def open_payment_popup(
         self,
         discount="0",
-        tax="0"
+        tax=None
     ):
 
         if not self.cart_data:
@@ -2027,7 +2057,7 @@ class POSScreen(Screen):
             total
         ) = self.calculate_total(
             discount,
-            tax
+            self.app.tax_percent if tax is None else tax
         )
 
         content = BoxLayout(
@@ -2156,9 +2186,11 @@ class POSScreen(Screen):
         popup = style_popup(Popup(
             title="Pembayaran",
             content=content,
-            size_hint=(.92, None),
-            size=(dp(430), min(dp(350), max(dp(300), Window.height * .55)))
+            size_hint=(None, None),
+            size=(dp(380), dp(330))
         ))
+        fit_popup(popup, content, min_width=dp(300), max_width=dp(460),
+                  min_height=dp(260), max_height_ratio=0.78, extra_height=dp(58))
 
         cancel.bind(
             on_release=popup.dismiss
@@ -2466,10 +2498,12 @@ class ProductScreen(Screen):
         popup = style_popup(Popup(
             title="Edit Produk" if product else "Tambah Produk",
             content=content,
-            size_hint=(.94, None),
-            size=(dp(430), min(dp(500), max(dp(360), Window.height * .78))),
+            size_hint=(None, None),
+            size=(dp(400), dp(500)),
             auto_dismiss=True
         ))
+        fit_popup(popup, content, min_width=dp(320), max_width=dp(470),
+                  min_height=dp(390), max_height_ratio=0.90, extra_height=dp(58))
 
         choose.bind(
             on_release=lambda *_:
