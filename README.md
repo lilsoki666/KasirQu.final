@@ -1,5 +1,3 @@
-KasirQU 2.0.4 - Cart & UI refinement
-
 # KasirQU Android POS
 
 Versi revisi startup-stability dan Android image picker.

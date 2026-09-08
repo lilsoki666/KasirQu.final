@@ -8,7 +8,7 @@ source.dir = .
 source.include_exts = py,png,jpg,jpeg,webp,kv,atlas,json,txt,ttf,otf,csv
 source.exclude_dirs = .git,.github,.buildozer,bin,__pycache__,docs
 
-version = 2.0.4
+version = 2.0.5
 
 orientation = portrait
 fullscreen = 0

@@ -15,7 +15,6 @@ from kivy.properties import StringProperty, NumericProperty
 from kivy.uix.screenmanager import Screen, ScreenManager, SlideTransition
 from kivy.uix.popup import Popup
 from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.anchorlayout import AnchorLayout
 from kivy.uix.gridlayout import GridLayout
 from kivy.uix.button import Button, ButtonBehavior
 from kivy.uix.label import Label
@@ -25,7 +24,7 @@ from kivy.uix.spinner import Spinner
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.widget import Widget
 from kivy.uix.filechooser import FileChooserListView
-from kivy.graphics import Color, RoundedRectangle, Line
+from kivy.graphics import Color, RoundedRectangle
 from kivy.clock import Clock
 from kivy.utils import platform
 
@@ -340,21 +339,6 @@ KV = r'''
     size_hint_y: None
 
     height: dp(44)
-
-
-<TextInput>:
-
-    canvas.after:
-
-        Color:
-
-            rgba: (.12,.16,.22,1)
-
-        Line:
-
-            rounded_rectangle: (self.x, self.y, self.width, self.height, dp(5))
-
-            width: 0.7
 
 
 <ScreenTitle@Label>:
@@ -850,7 +834,7 @@ KV = r'''
 
                 TextInput:
                     id: store
-                    hint_text: "Nama toko / usaha"
+                    hint_text: "Nama usaha"
                     multiline: False
                     size_hint_y: None
                     height: dp(44)
@@ -861,9 +845,9 @@ KV = r'''
                 TextInput:
                     id: address
                     hint_text: "Alamat / kontak"
-                    multiline: True
+                    multiline: False
                     size_hint_y: None
-                    height: dp(58)
+                    height: dp(44)
                     padding: [dp(12),dp(10)]
                     background_normal: ""
                     background_color: (1,1,1,1)
@@ -878,32 +862,12 @@ KV = r'''
                     background_normal: ""
                     background_color: (1,1,1,1)
 
-                BoxLayout:
+                Spinner:
+                    id: paper
+                    text: "58mm"
+                    values: ["58mm","80mm"]
                     size_hint_y: None
                     height: dp(44)
-                    spacing: dp(7)
-
-                    SoftButton:
-                        id: logo_status
-                        text: "Pilih Logo Struk"
-                        on_release: root.pick_receipt_logo()
-
-                    SoftButton:
-                        text: "Hapus Logo"
-                        on_release: root.clear_receipt_logo()
-
-                Label:
-                    id: logo_path
-                    text: "Logo: belum dipilih"
-                    color: (.40,.44,.51,1)
-                    font_size: "11sp"
-                    size_hint_y: None
-                    height: dp(24)
-                    halign: "left"
-                    valign: "middle"
-                    shorten: True
-                    shorten_from: "right"
-                    text_size: self.size
 
                 Label:
                     text: "OPERASIONAL"
@@ -931,30 +895,31 @@ KV = r'''
                     size_hint_y: None
                     height: dp(44)
 
-                BoxLayout:
+                TextInput:
+                    id: tax
+                    hint_text: "Pajak (%) - contoh 11"
+                    input_filter: "float"
+                    multiline: False
                     size_hint_y: None
                     height: dp(44)
-                    spacing: dp(8)
+                    padding: [dp(12),dp(10)]
+                    background_normal: ""
+                    background_color: (1,1,1,1)
 
-                    TextInput:
-                        id: tax
-                        hint_text: "Pajak (%)"
-                        input_filter: "float"
-                        multiline: False
-                        size_hint_x: .5
-                        padding: [dp(12),dp(10)]
-                        background_normal: ""
-                        background_color: (1,1,1,1)
+                TextInput:
+                    id: low_stock
+                    hint_text: "Batas stok menipis (contoh 5)"
+                    input_filter: "float"
+                    multiline: False
+                    size_hint_y: None
+                    height: dp(44)
+                    padding: [dp(12),dp(10)]
+                    background_normal: ""
+                    background_color: (1,1,1,1)
 
-                    TextInput:
-                        id: low_stock
-                        hint_text: "Batas stok"
-                        input_filter: "float"
-                        multiline: False
-                        size_hint_x: .5
-                        padding: [dp(12),dp(10)]
-                        background_normal: ""
-                        background_color: (1,1,1,1)
+                PrimaryButton:
+                    text: "SIMPAN PENGATURAN"
+                    on_release: root.save()
 
                 Label:
                     text: "PRINTER THERMAL"
@@ -982,26 +947,6 @@ KV = r'''
                 SoftButton:
                     text: "TEST PRINT"
                     on_release: root.test_printer()
-
-                Label:
-                    text: "UKURAN KERTAS"
-                    color: (.40,.44,.51,1)
-                    bold: True
-                    size_hint_y: None
-                    height: dp(26)
-                    halign: "left"
-                    text_size: self.size
-
-                Spinner:
-                    id: paper
-                    text: "58mm"
-                    values: ["58mm","80mm"]
-                    size_hint_y: None
-                    height: dp(44)
-
-                PrimaryButton:
-                    text: "SIMPAN PENGATURAN"
-                    on_release: root.save()
 
                 Label:
                     text: "DATA & KEAMANAN"
@@ -1271,7 +1216,6 @@ class DB:
             "store_name": "KasirQU",
             "store_address": "Alamat / Kontak",
             "receipt_footer": "Terima kasih telah berbelanja",
-            "receipt_logo": "",
             "paper": "58mm",
             "tax_percent": "0",
             "low_stock_threshold": "5",
@@ -1993,95 +1937,163 @@ class POSScreen(Screen):
             self.app.notify("Scanner tidak tersedia. Anda tetap bisa memakai scanner Bluetooth/USB atau mengetik barcode lalu Enter.")
 
     def open_cart_popup(self):
-        """Open a robust, Android-safe cart dialog."""
+        """Open the shopping cart using conservative Kivy layouts.
+
+        This method intentionally avoids dynamic size_hint/height combinations
+        that can trigger Android/Kivy layout exceptions while a Popup is opening.
+        """
         try:
-            if not getattr(self, "cart_data", None):
+            if not self.cart_data:
                 self.app.notify("Keranjang masih kosong.")
                 return
 
-            content = BoxLayout(orientation="vertical", spacing=dp(8), padding=dp(10))
+            content = BoxLayout(
+                orientation="vertical",
+                spacing=dp(8),
+                padding=dp(10),
+            )
 
-            rows = GridLayout(cols=1, spacing=dp(6), size_hint_y=None, padding=[0, 0, 0, dp(2)])
+            scroll = ScrollView(
+                do_scroll_x=False,
+                size_hint_y=1,
+            )
+            rows = GridLayout(
+                cols=1,
+                spacing=dp(6),
+                size_hint_y=None,
+            )
             rows.bind(minimum_height=rows.setter("height"))
-            scroll = ScrollView(do_scroll_x=False, size_hint_y=1, bar_width=dp(3))
             scroll.add_widget(rows)
             content.add_widget(scroll)
 
-            summary = BoxLayout(orientation="horizontal", size_hint_y=None, height=dp(48), spacing=dp(10))
-            discount_box = BoxLayout(orientation="horizontal", size_hint_x=.48, spacing=dp(5))
-            discount_box.add_widget(Label(text="Diskon", color=MUTED, font_size="12sp", size_hint_x=None, width=dp(48), halign="left", valign="middle"))
-            discount = TextInput(text="0", hint_text="Rp", input_filter="float", multiline=False,
-                                 size_hint_x=1, padding=[dp(8), dp(7)], background_normal="",
-                                 background_color=(0.97, 0.98, 1, 1), foreground_color=TEXT, cursor_color=PRIMARY)
-            discount_box.add_widget(discount)
-            summary.add_widget(discount_box)
+            discount = TextInput(
+                hint_text="Rp 0",
+                text="0",
+                input_filter="float",
+                multiline=False,
+                size_hint=(1, None),
+                height=dp(36),
+                padding=[dp(8), dp(7)],
+                background_normal="",
+                background_color=(0.97, 0.98, 1, 1),
+                foreground_color=TEXT,
+                cursor_color=PRIMARY,
+            )
 
-            total_box = AnchorLayout(anchor_x="center", anchor_y="center", size_hint_x=.52)
-            total_label = Label(text="TOTAL  Rp 0", color=PRIMARY, font_size="17sp", bold=True,
-                                halign="center", valign="middle")
-            total_label.bind(size=lambda w, v: setattr(w, "text_size", v))
+            discount_row = BoxLayout(
+                orientation="horizontal",
+                size_hint_y=None,
+                height=dp(42),
+                spacing=dp(8),
+            )
+            discount_label = Label(
+                text="Diskon",
+                color=MUTED,
+                font_size="12sp",
+                size_hint_x=None,
+                width=dp(58),
+                halign="left",
+                valign="middle",
+            )
+            discount_row.add_widget(discount_label)
+            discount_row.add_widget(discount)
+
+            total_label = Label(
+                text="TOTAL  Rp 0",
+                color=PRIMARY,
+                font_size="18sp",
+                bold=True,
+                size_hint_x=1,
+                halign="center",
+                valign="middle",
+            )
+
+            summary = GridLayout(
+                cols=2,
+                size_hint_y=None,
+                height=dp(46),
+                spacing=dp(8),
+            )
+            summary.add_widget(discount_row)
+            total_box = AnchorLayout(anchor_x="center", anchor_y="center")
             total_box.add_widget(total_label)
             summary.add_widget(total_box)
             content.add_widget(summary)
 
-            pay = make_button("BAYAR", primary=True, height=48)
+            pay = make_button("BAYAR", primary=True, height=46)
             content.add_widget(pay)
-
-            popup = style_popup(Popup(title="Keranjang Belanja", content=content,
-                                      size_hint=(None, None), size=(dp(390), dp(430)), auto_dismiss=True))
 
             def redraw(*_):
                 try:
                     rows.clear_widgets()
-                    items = list(getattr(self, "cart_data", []) or [])
-                    for index, item in enumerate(items):
-                        qty = safe_float(item.get("qty", 0))
-                        price = safe_float(item.get("price", 0))
-                        name_text = safe_text(item.get("name", "Produk"))
-                        row = BoxLayout(orientation="horizontal", size_hint_y=None, height=dp(58), spacing=dp(5), padding=[dp(6), dp(5)])
-                        with row.canvas.before:
-                            Color(*BORDER)
-                            row._line = RoundedRectangle(pos=row.pos, size=row.size, radius=[dp(6)])
-                        row.bind(pos=lambda w, _: setattr(w._line, 'pos', w.pos), size=lambda w, _: setattr(w._line, 'size', w.size))
-                        info = Label(text=f"{name_text}\n{qty:g} x {money(price)}", color=TEXT, font_size="12sp", halign="left", valign="middle", shorten=True, shorten_from="right")
-                        info.bind(size=lambda w, v: setattr(w, "text_size", v))
-                        row.add_widget(info)
-                        for symbol, delta, primary in (("−", -1, False), ("+", 1, True), ("×", 0, False)):
-                            btn = make_button(symbol, primary=primary, height=40)
+                    for index, item in enumerate(list(self.cart_data)):
+                        row = Card(
+                            orientation="horizontal",
+                            size_hint_y=None,
+                            height=dp(58),
+                            padding=dp(5),
+                            spacing=dp(4),
+                        )
+                        name = Label(
+                            text=f'{item.get("name", "Produk")}\n{item.get("qty", 0):g} x {money(item.get("price", 0))}',
+                            color=TEXT,
+                            halign="left",
+                            valign="middle",
+                        )
+                        name.bind(size=lambda w, v: setattr(w, "text_size", v))
+                        row.add_widget(name)
+
+                        for symbol, delta, primary in (("-", -1, False), ("+", 1, True), ("×", 0, False)):
+                            btn = make_button(symbol, primary=primary, height=42)
                             btn.size_hint_x = None
-                            btn.width = dp(38)
+                            btn.width = dp(40)
                             if delta:
                                 btn.bind(on_release=lambda *_a, i=index, d=delta: self.change_qty(i, d, redraw))
                             else:
-                                btn.background_color = DANGER
-                                btn.color = WHITE
                                 btn.bind(on_release=lambda *_a, i=index: self.remove_item(i, redraw))
                             row.add_widget(btn)
                         rows.add_widget(row)
+
                     total = self.calculate_total(discount.text or "0")[3]
                     total_label.text = f"TOTAL  {money(total)}"
-                    # Keep popup usable on small Android screens.
-                    desired_rows = min(dp(330), max(dp(72), rows.minimum_height))
-                    popup.size = (min(dp(500), max(dp(330), Window.width * .92)),
-                                  min(Window.height * .82, max(dp(330), desired_rows + dp(48) + dp(48) + dp(58))))
                 except Exception as error:
                     self.app.log_error("CART_REDRAW", error)
-                    total_label.text = "Keranjang tidak dapat ditampilkan"
+                    self.app.notify("Gagal menampilkan isi keranjang.")
 
             def payment(*_):
                 try:
-                    value = discount.text or "0"
+                    discount_value = discount.text or "0"
                     popup.dismiss()
-                    Clock.schedule_once(lambda dt: self.open_payment_popup(value), 0.08)
+                    Clock.schedule_once(lambda *_dt: self.open_payment_popup(discount_value), 0.05)
                 except Exception as error:
                     self.app.log_error("OPEN_PAYMENT", error)
                     self.app.notify("Gagal membuka pembayaran.")
 
             discount.bind(text=redraw)
             pay.bind(on_release=payment)
+
+            popup = style_popup(Popup(
+                title="Keranjang Belanja",
+                content=content,
+                size_hint=(None, None),
+                size=(min(dp(520), Window.width * 0.94), min(dp(560), Window.height * 0.82)),
+                auto_dismiss=True,
+            ))
+
+            def size_popup(*_):
+                try:
+                    width = min(dp(520), max(dp(320), Window.width * 0.94))
+                    rows_h = min(dp(390), max(dp(150), rows.minimum_height + dp(8)))
+                    desired = rows_h + dp(46) + dp(42) + dp(46) + dp(58)
+                    height = min(Window.height * 0.82, max(dp(340), desired))
+                    popup.size = (width, height)
+                except Exception as error:
+                    self.app.log_error("CART_POPUP_SIZE", error)
+
             redraw()
             popup.open()
-            Clock.schedule_once(lambda dt: redraw(), 0.05)
+            Clock.schedule_once(size_popup, 0.05)
+            Clock.schedule_once(size_popup, 0.15)
 
         except Exception as error:
             self.app.log_error("OPEN_CART", error)
@@ -2366,7 +2378,9 @@ class POSScreen(Screen):
                 self.app.notify(f"Transaksi {invoice} berhasil.")
                 self.app.auto_backup()
 
-                # Printer setup is now managed from Pengaturan.
+                # Cetak otomatis menggunakan printer yang sudah dipilih
+                # di Pengaturan. Tidak ada dialog pemilihan printer setelah bayar.
+                self.app.auto_print_saved_receipt()
 
             except Exception as error:
 
@@ -2884,7 +2898,7 @@ class TransactionScreen(Screen):
 
         cart = [dict(item) for item in items]
         self.app.last_receipt = (sale['invoice'], sale['subtotal'], sale['discount'], sale['tax'], sale['total'], sale['payment_method'], sale['paid'], sale['change_amount'], cart)
-        print_btn.bind(on_release=lambda *_: (popup.dismiss(), self.app.bluetooth_printer_dialog()))
+        print_btn.bind(on_release=lambda *_: (popup.dismiss(), self.app.print_last_receipt_saved_printer()))
         
         try:
             if not int(sale["voided"] or 0):
@@ -3112,9 +3126,6 @@ class SettingsScreen(Screen):
                 )
             )
 
-            logo = self.app.db.setting("receipt_logo") or ""
-            self.ids.logo_path.text = "Logo: " + (os.path.basename(logo) if logo else "belum dipilih")
-
             self.ids.paper.text = (
                 self.app.db.setting("paper") or "58mm"
             )
@@ -3122,9 +3133,6 @@ class SettingsScreen(Screen):
             self.ids.cashier.text = (self.app.db.setting("cashier_name") or "Kasir")
             self.ids.role.text = (self.app.db.setting("user_role") or "Owner")
             self.ids.low_stock.text = (self.app.db.setting("low_stock_threshold") or "5")
-            self.receipt_logo = self.app.db.setting("receipt_logo") or ""
-            self.ids.logo_path.text = "Logo: " + (os.path.basename(self.receipt_logo) if self.receipt_logo else "belum dipilih")
-            self.ids.logo_status.text = "Ganti Logo Struk" if self.receipt_logo else "Pilih Logo Struk"
             address = self.app.db.setting("printer_address")
             self.ids.printer_status.text = "Printer: " + (address if address else "belum dipilih")
 
@@ -3134,28 +3142,6 @@ class SettingsScreen(Screen):
                 "SETTINGS_LOAD",
                 error
             )
-
-    def pick_receipt_logo(self):
-        """Use the same Android content:// image flow as product photos."""
-        try:
-            self.app.pending_receipt_logo_screen = self
-            selected = {"path": ""}
-            preview = Image(source="", size_hint_y=None, height=dp(1))
-            self.app.open_image_picker(selected, preview)
-        except Exception as error:
-            self.app.pending_receipt_logo_screen = None
-            self.app.log_error("RECEIPT_LOGO_PICKER", error)
-            self.app.notify("Pemilih logo tidak tersedia.")
-
-    def clear_receipt_logo(self):
-        try:
-            self.receipt_logo = ""
-            self.app.db.set_setting("receipt_logo", "")
-            self.ids.logo_path.text = "Logo: belum dipilih"
-            self.ids.logo_status.text = "Pilih Logo Struk"
-            self.app.notify("Logo struk dihapus.")
-        except Exception as error:
-            self.app.log_error("RECEIPT_LOGO_CLEAR", error)
 
     def open_printer(self):
         try:
@@ -3188,8 +3174,6 @@ class SettingsScreen(Screen):
                 "receipt_footer",
                 self.ids.footer.text
             )
-
-            self.app.db.set_setting("receipt_logo", getattr(self, "receipt_logo", self.app.db.setting("receipt_logo") or ""))
 
             self.app.db.set_setting(
                 "paper", self.ids.paper.text
@@ -3251,7 +3235,6 @@ class UniversalPOS(App):
     last_receipt = None
 
     pending_image = None
-    pending_receipt_logo_screen = None
 
     def __init__(self, **kwargs):
 
@@ -3893,20 +3876,6 @@ class UniversalPOS(App):
                 )
             )
 
-            if temp_path and getattr(self, "pending_receipt_logo_screen", None):
-                screen = self.pending_receipt_logo_screen
-                try:
-                    saved = self.save_selected_image(temp_path) or temp_path
-                    screen.receipt_logo = saved
-                    self.db.set_setting("receipt_logo", saved)
-                    screen.ids.logo_path.text = "Logo: " + os.path.basename(saved)
-                    screen.ids.logo_status.text = "Ganti Logo Struk"
-                    self.notify("Logo struk berhasil dipilih.")
-                except Exception as error:
-                    self.log_error("RECEIPT_LOGO_SAVE", error)
-                    self.notify("Logo struk gagal disimpan.")
-                return
-
             if (
                 temp_path
                 and
@@ -3953,7 +3922,6 @@ class UniversalPOS(App):
                 pass
 
             self.pending_image = None
-            self.pending_receipt_logo_screen = None
 
     # --------------------------------------------------------
     # COPY CONTENT URI
@@ -4204,62 +4172,43 @@ class UniversalPOS(App):
     # PRINT
     # ========================================================
 
+    def auto_print_saved_receipt(self):
+        """Cetak struk otomatis setelah transaksi selesai.
+
+        Printer harus sudah dipilih dari Pengaturan. Jika belum dipilih,
+        transaksi tetap berhasil dan pengguna diberi informasi yang jelas.
+        """
+        try:
+            address = self.db.setting("printer_address")
+            if not address:
+                self.notify("Transaksi tersimpan. Printer belum dipilih di Pengaturan.")
+                return
+            self.print_bluetooth(address, notify_success=True)
+        except Exception as error:
+            self.log_error("AUTO_PRINT", error)
+            self.notify("Transaksi tersimpan, tetapi struk gagal dicetak.")
+
+    def print_last_receipt_saved_printer(self):
+        """Cetak ulang struk terakhir memakai printer tersimpan."""
+        try:
+            if not self.last_receipt:
+                self.notify("Data struk tidak tersedia.")
+                return
+            address = self.db.setting("printer_address")
+            if not address:
+                self.notify("Pilih printer Bluetooth di Pengaturan terlebih dahulu.")
+                return
+            self.print_bluetooth(address, notify_success=True)
+        except Exception as error:
+            self.log_error("REPRINT_RECEIPT", error)
+            self.notify("Cetak ulang gagal: " + str(error))
+
     def print_or_offer(self, invoice):
-
-        content = BoxLayout(
-            orientation="vertical",
-            spacing=dp(8),
-            padding=dp(10)
-        )
-
-        content.add_widget(
-            text_label(
-                f"Transaksi {invoice} berhasil.\n"
-                "Cetak struk sekarang?",
-                size=15,
-                halign="center"
-            )
-        )
-
-        row = BoxLayout(
-            size_hint_y=None,
-            height=dp(46),
-            spacing=dp(7)
-        )
-
-        bluetooth = make_button(
-            "Bluetooth",
-            primary=True
-        )
-
-        no_print = make_button(
-            "Tidak"
-        )
-
-        row.add_widget(bluetooth)
-        row.add_widget(no_print)
-
-        content.add_widget(row)
-
-        popup = style_popup(Popup(
-            title="Struk",
-            content=content,
-            size_hint=(.88, None),
-            size=(dp(400), dp(170))
-        ))
-
-        bluetooth.bind(
-            on_release=lambda *_: (
-                popup.dismiss(),
-                self.bluetooth_printer_dialog()
-            )
-        )
-
-        no_print.bind(
-            on_release=popup.dismiss
-        )
-
-        popup.open()
+        """Kompatibilitas lama: sekarang langsung memakai printer tersimpan."""
+        try:
+            self.auto_print_saved_receipt()
+        except Exception as error:
+            self.log_error("PRINT_OR_OFFER", error)
 
     # --------------------------------------------------------
     # BLUETOOTH DEVICES
@@ -4471,7 +4420,7 @@ class UniversalPOS(App):
     # BLUETOOTH PRINT
     # --------------------------------------------------------
 
-    def print_bluetooth(self, address):
+    def print_bluetooth(self, address, notify_success=True):
 
         if not self.last_receipt:
             self.notify("Belum ada struk yang bisa dicetak. Gunakan TEST PRINT di Pengaturan untuk mengetes koneksi.")
@@ -4536,9 +4485,10 @@ class UniversalPOS(App):
 
             output.flush()
 
-            self.notify(
-                "Struk berhasil dikirim."
-            )
+            if notify_success:
+                self.notify(
+                    "Struk berhasil dikirim."
+                )
 
         except Exception as error:
 
