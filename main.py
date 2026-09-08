@@ -1766,7 +1766,7 @@ class POSScreen(Screen):
         scroll = ScrollView(
             do_scroll_x=False,
             size_hint_y=None,
-            height=dp(70)
+            height=dp(180)
         )
 
         rows = GridLayout(
@@ -1915,8 +1915,10 @@ class POSScreen(Screen):
 
                 rows.add_widget(row)
 
-            # Show only as much cart content as needed, while keeping long carts scrollable.
-            content_height = max(dp(64), min(dp(300), rows.minimum_height + dp(4)))
+            # Give the cart enough room to be comfortable, while keeping very long
+            # carts scrollable. One or a few products should never collapse into a
+            # tiny dialog.
+            content_height = max(dp(150), min(dp(420), rows.minimum_height + dp(12)))
             scroll.height = content_height
 
             _, _, _, total = (
@@ -1965,8 +1967,8 @@ class POSScreen(Screen):
             size_hint=(None, None),
             size=(dp(360), dp(360))
         ))
-        fit_popup(popup, content, min_width=dp(320), max_width=dp(470),
-                  min_height=dp(250), max_height_ratio=0.86, extra_height=dp(58))
+        fit_popup(popup, content, min_width=dp(340), max_width=dp(500),
+                  min_height=dp(380), max_height_ratio=0.90, extra_height=dp(62))
 
         clear.bind(
             on_release=lambda *_: (
@@ -1977,14 +1979,17 @@ class POSScreen(Screen):
 
         def payment(*_):
 
-            discount_value = discount.text
-            tax_value = tax.text
+            discount_value = discount.text or "0"
 
+            # Tax is intentionally not shown in the cart popup.
+            # open_payment_popup calculates it from the application setting.
             popup.dismiss()
 
-            self.open_payment_popup(
-                discount_value
-            )
+            try:
+                self.open_payment_popup(discount_value)
+            except Exception as error:
+                self.app.log_error("OPEN_PAYMENT", error)
+                self.app.notify("Gagal membuka pembayaran:\n" + str(error))
 
         pay.bind(
             on_release=payment
@@ -2189,8 +2194,8 @@ class POSScreen(Screen):
             size_hint=(None, None),
             size=(dp(380), dp(330))
         ))
-        fit_popup(popup, content, min_width=dp(300), max_width=dp(460),
-                  min_height=dp(260), max_height_ratio=0.78, extra_height=dp(58))
+        fit_popup(popup, content, min_width=dp(320), max_width=dp(480),
+                  min_height=dp(330), max_height_ratio=0.84, extra_height=dp(62))
 
         cancel.bind(
             on_release=popup.dismiss
