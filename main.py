@@ -2107,7 +2107,7 @@ class POSScreen(Screen):
             # Give the cart enough room to be comfortable, while keeping very long
             # carts scrollable. One or a few products should never collapse into a
             # tiny dialog.
-            content_height = max(dp(150), min(dp(420), rows.minimum_height + dp(12)))
+                content_height = max(dp(150), min(dp(420), rows.minimum_height + dp(12)))
             scroll.height = content_height
 
             _, _, _, total = (
@@ -2120,9 +2120,7 @@ class POSScreen(Screen):
                 f"TOTAL  {money(total)}"
             )
 
-        discount.bind(
-            text=redraw
-        )
+        discount.bind(text=redraw)
 
         scroll.add_widget(rows)
 
@@ -2166,10 +2164,24 @@ class POSScreen(Screen):
             title="Keranjang Belanja",
             content=content,
             size_hint=(None, None),
-            size=(dp(390), dp(420))
+            size=(min(dp(520), Window.width * 0.94), min(dp(520), Window.height * 0.82)),
+            auto_dismiss=True
         ))
-        fit_popup(popup, content, min_width=dp(380), max_width=dp(520),
-                  min_height=dp(440), max_height_ratio=0.90, extra_height=dp(70))
+
+        # Keep cart dialog sizing independent from BoxLayout.minimum_height.
+        # This avoids a Kivy layout timing crash when the popup is opened.
+        def _size_cart_popup(*_):
+            try:
+                width = min(dp(520), max(dp(320), Window.width * 0.94))
+                max_height = Window.height * 0.82
+                desired = scroll.height + dp(48) + dp(46) + dp(42) + dp(70)
+                height = min(max_height, max(dp(360), desired))
+                popup.size = (width, height)
+            except Exception as error:
+                self.app.log_error("CART_POPUP_SIZE", error)
+
+        Clock.schedule_once(_size_cart_popup, 0)
+        Clock.schedule_once(_size_cart_popup, 0.08)
 
         def payment(*_):
 

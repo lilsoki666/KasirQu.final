@@ -1,4 +1,4 @@
-# KasirQU 2.0.0 – Professional POS Upgrade
+# KasirQU 2.0.1 – Professional POS Upgrade
 
 Upgrade besar dari basis 1.6.7 dengan fokus pada kestabilan dan fitur POS nyata.
 
