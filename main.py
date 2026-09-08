@@ -1749,7 +1749,7 @@ class POSScreen(Screen):
                     text=(
                         f'{product["name"]}\n'
                         f'{money(product["price"])}'
-                        f'  •  stok '
+                        f'  â€¢  stok '
                         f'{float(product["stock"]):g}'
                     ),
                     color=TEXT,
@@ -2043,7 +2043,7 @@ class POSScreen(Screen):
                         name.bind(size=lambda w, v: setattr(w, "text_size", v))
                         row.add_widget(name)
 
-                        for symbol, delta, primary in (("-", -1, False), ("+", 1, True), ("×", 0, False)):
+                        for symbol, delta, primary in (("-", -1, False), ("+", 1, True), ("Ã—", 0, False)):
                             btn = make_button(symbol, primary=primary, height=42)
                             btn.size_hint_x = None
                             btn.width = dp(40)
@@ -2477,7 +2477,7 @@ class ProductScreen(Screen):
                     text=(
                         f'{product["name"]}\n'
                         f'{money(product["price"])}'
-                        f'  •  stok '
+                        f'  â€¢  stok '
                         f'{float(product["stock"]):g}\n'
                         f'{product["category"] or "Tanpa kategori"}'
                     ),
@@ -2814,7 +2814,7 @@ class TransactionScreen(Screen):
                     text=(
                         f'{sale["invoice"]}\n'
                         f'{sale["created_at"]}\n'
-                        f'{sale["payment_method"]}' + ("  •  VOID" if ("voided" in sale.keys() and int(sale["voided"] or 0)) else "")
+                        f'{sale["payment_method"]}' + ("  â€¢  VOID" if ("voided" in sale.keys() and int(sale["voided"] or 0)) else "")
                     ),
                     color=TEXT,
                     halign="left",
