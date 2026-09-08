@@ -365,7 +365,7 @@ KV = r'''
 
     bold: True
 
-    halign: "left"
+    halign: "center"
 
     valign: "middle"
 
@@ -609,56 +609,56 @@ KV = r'''
                 size: self.size
 
 
+        ScreenTitle:
+
+            text: "Produk"
+
+            size_hint_y: None
+
+            height: dp(46)
+
+
         BoxLayout:
 
             size_hint_y: None
 
-            height: dp(52)
+            height: dp(46)
 
-            spacing: dp(10)
+            spacing: dp(8)
 
 
-            ScreenTitle:
+            TextInput:
 
-                text: "Produk"
+                id: search
 
-                size_hint_x: .70
+                hint_text: "Cari nama, SKU, kategori..."
+
+                multiline: False
+
+                padding: [dp(12), dp(10)]
+
+                background_normal: ""
+
+                background_color: (1,1,1,1)
+
+                foreground_color: (.08,.11,.16,1)
+
+                on_text:
+
+                    root.refresh(self.text)
 
 
             PrimaryButton:
 
                 text: "+ Produk"
 
-                size_hint_x: .30
+                size_hint_x: None
+
+                width: dp(112)
 
                 on_release:
 
                     root.open_editor()
-
-
-        TextInput:
-
-            id: search
-
-            hint_text: "Cari nama, SKU, kategori..."
-
-            multiline: False
-
-            size_hint_y: None
-
-            height: dp(44)
-
-            padding: [dp(12), dp(10)]
-
-            background_normal: ""
-
-            background_color: (1,1,1,1)
-
-            foreground_color: (.08,.11,.16,1)
-
-            on_text:
-
-                root.refresh(self.text)
 
 
         ScrollView:
@@ -962,26 +962,8 @@ KV = r'''
                     bold: True
                     size_hint_y: None
                     height: dp(26)
-                    halign: "left"
+                    halign: "center"
                     text_size: self.size
-
-                Label:
-                    id: printer_status
-                    text: "Printer: belum dipilih"
-                    color: (.08,.11,.16,1)
-                    size_hint_y: None
-                    height: dp(34)
-                    halign: "left"
-                    valign: "middle"
-                    text_size: self.size
-
-                PrimaryButton:
-                    text: "PILIH PRINTER BLUETOOTH"
-                    on_release: root.open_printer()
-
-                SoftButton:
-                    text: "TEST PRINT"
-                    on_release: root.test_printer()
 
                 Label:
                     text: "UKURAN KERTAS"
@@ -989,7 +971,7 @@ KV = r'''
                     bold: True
                     size_hint_y: None
                     height: dp(26)
-                    halign: "left"
+                    halign: "center"
                     text_size: self.size
 
                 Spinner:
@@ -998,6 +980,24 @@ KV = r'''
                     values: ["58mm","80mm"]
                     size_hint_y: None
                     height: dp(44)
+
+                Label:
+                    id: printer_status
+                    text: "Printer: belum terhubung"
+                    color: (.08,.11,.16,1)
+                    size_hint_y: None
+                    height: dp(34)
+                    halign: "center"
+                    valign: "middle"
+                    text_size: self.size
+
+                PrimaryButton:
+                    text: "PILIH & HUBUNGKAN PRINTER BLUETOOTH"
+                    on_release: root.open_printer()
+
+                SoftButton:
+                    text: "TEST PRINT"
+                    on_release: root.test_printer()
 
                 PrimaryButton:
                     text: "SIMPAN PENGATURAN"
@@ -1280,7 +1280,8 @@ class DB:
             "receipt_header": "",
             "auto_backup": "1",
             "product_columns": "4",
-            "printer_address": ""
+            "printer_address": "",
+            "printer_name": ""
         }
 
         for key, value in defaults.items():
@@ -2884,7 +2885,7 @@ class TransactionScreen(Screen):
 
         cart = [dict(item) for item in items]
         self.app.last_receipt = (sale['invoice'], sale['subtotal'], sale['discount'], sale['tax'], sale['total'], sale['payment_method'], sale['paid'], sale['change_amount'], cart)
-        print_btn.bind(on_release=lambda *_: (popup.dismiss(), self.app.bluetooth_printer_dialog()))
+        print_btn.bind(on_release=lambda *_: (popup.dismiss(), self.app.print_saved_receipt()))
         
         try:
             if not int(sale["voided"] or 0):
@@ -3126,7 +3127,13 @@ class SettingsScreen(Screen):
             self.ids.logo_path.text = "Logo: " + (os.path.basename(self.receipt_logo) if self.receipt_logo else "belum dipilih")
             self.ids.logo_status.text = "Ganti Logo Struk" if self.receipt_logo else "Pilih Logo Struk"
             address = self.app.db.setting("printer_address")
-            self.ids.printer_status.text = "Printer: " + (address if address else "belum dipilih")
+            if self.app.is_printer_connected():
+                name = self.app.printer_name or address or "Printer Bluetooth"
+                self.ids.printer_status.text = "Printer: " + name + "  •  TERHUBUNG"
+            elif address:
+                self.ids.printer_status.text = "Printer: " + address + "  •  BELUM TERHUBUNG"
+            else:
+                self.ids.printer_status.text = "Printer: belum terhubung"
 
         except Exception as error:
 
@@ -3262,6 +3269,13 @@ class UniversalPOS(App):
         self.images_dir = ""
 
         self._activity_callback = None
+
+        # Persistent Bluetooth printer connection. The socket stays open
+        # after setup so checkout/reprint never asks the user to reconnect.
+        self.printer_socket = None
+        self.printer_output = None
+        self.printer_address = ""
+        self.printer_name = ""
 
     # --------------------------------------------------------
     # ERROR LOG
@@ -4201,110 +4215,83 @@ class UniversalPOS(App):
             self.log_error("AUTO_BACKUP", error)
 
     # ========================================================
-    # PRINT
+    # PRINT / PERSISTENT BLUETOOTH PRINTER
     # ========================================================
 
     def print_or_offer(self, invoice):
+        """Print immediately using the printer connected in Settings."""
+        if not self.last_receipt:
+            return
 
-        content = BoxLayout(
-            orientation="vertical",
-            spacing=dp(8),
-            padding=dp(10)
-        )
-
-        content.add_widget(
-            text_label(
-                f"Transaksi {invoice} berhasil.\n"
-                "Cetak struk sekarang?",
-                size=15,
-                halign="center"
+        if not self.is_printer_connected():
+            self.notify(
+                "Transaksi berhasil, tetapi printer belum terhubung.\n"
+                "Hubungkan printer sekali melalui Pengaturan."
             )
+            return
+
+        self.print_saved_receipt()
+
+    def is_printer_connected(self):
+        return (
+            self.printer_socket is not None
+            and self.printer_output is not None
         )
 
-        row = BoxLayout(
-            size_hint_y=None,
-            height=dp(46),
-            spacing=dp(7)
-        )
+    def close_printer_connection(self):
+        output = self.printer_output
+        socket = self.printer_socket
+        self.printer_output = None
+        self.printer_socket = None
 
-        bluetooth = make_button(
-            "Bluetooth",
-            primary=True
-        )
+        if output is not None:
+            try:
+                output.close()
+            except Exception:
+                pass
 
-        no_print = make_button(
-            "Tidak"
-        )
+        if socket is not None:
+            try:
+                socket.close()
+            except Exception:
+                pass
 
-        row.add_widget(bluetooth)
-        row.add_widget(no_print)
-
-        content.add_widget(row)
-
-        popup = style_popup(Popup(
-            title="Struk",
-            content=content,
-            size_hint=(.88, None),
-            size=(dp(400), dp(170))
-        ))
-
-        bluetooth.bind(
-            on_release=lambda *_: (
-                popup.dismiss(),
-                self.bluetooth_printer_dialog()
-            )
-        )
-
-        no_print.bind(
-            on_release=popup.dismiss
-        )
-
-        popup.open()
-
-    # --------------------------------------------------------
-    # BLUETOOTH DEVICES
-    # --------------------------------------------------------
+    def open_printer(self):
+        self.bluetooth_printer_dialog()
 
     def bluetooth_printer_dialog(self):
-
         devices = self.get_bonded_devices()
 
         if not devices:
-
             self.notify(
-                "Tidak ada printer Bluetooth "
-                "yang sudah dipairing."
+                "Tidak ada printer Bluetooth yang sudah dipairing.\n"
+                "Pairing printer terlebih dahulu di Android."
             )
-
             return
 
         content = BoxLayout(
             orientation="vertical",
-            spacing=dp(6),
-            padding=dp(8)
+            spacing=dp(7),
+            padding=dp(10)
         )
 
         popup = style_popup(Popup(
-            title="Pilih Printer Bluetooth",
+            title="Hubungkan Printer Bluetooth",
             content=content,
             size_hint=(.92, None),
-            size=(dp(430), min(dp(460), max(dp(300), Window.height * .72)))
+            size=(dp(430), min(dp(480), max(dp(320), Window.height * .72)))
         ))
 
         for name, address in devices:
-
             row = Card(
                 orientation="horizontal",
                 size_hint_y=None,
-                height=dp(66),
+                height=dp(68),
                 padding=[dp(10), dp(7)],
                 spacing=dp(8)
             )
 
-            info = BoxLayout(
-                orientation="vertical",
-                spacing=dp(1)
-            )
+            info = BoxLayout(orientation="vertical", spacing=dp(1))
             name_label = Label(
                 text=name or "Printer Bluetooth",
                 color=TEXT,
@@ -4329,18 +4316,13 @@ class UniversalPOS(App):
             info.add_widget(name_label)
             info.add_widget(addr_label)
 
-            connect = make_button(
-                "PILIH",
-                primary=True,
-                height=40
-            )
+            connect = make_button("HUBUNGKAN", primary=True, height=40)
             connect.size_hint_x = None
-            connect.width = dp(72)
+            connect.width = dp(112)
             connect.bind(
-                on_release=lambda *_,
-                addr=address: (
+                on_release=lambda *_ , addr=address, pname=(name or "Printer Bluetooth"): (
                     popup.dismiss(),
-                    self.select_printer(addr)
+                    self.connect_printer(addr, pname)
                 )
             )
 
@@ -4352,215 +4334,162 @@ class UniversalPOS(App):
             popup, content,
             min_width=dp(330),
             max_width=dp(500),
-            min_height=dp(210),
+            min_height=dp(220),
             max_height_ratio=0.82,
             extra_height=dp(70)
         )
-
         popup.open()
 
-    def select_printer(self, address):
-        try:
-            self.db.set_setting("printer_address", address)
-            try:
-                settings = self.root.ids.sm.get_screen("settings")
-                settings.ids.printer_status.text = "Printer: " + address
-            except Exception:
-                pass
-            self.notify("Printer Bluetooth dipilih:\n" + address)
-        except Exception as error:
-            self.log_error("SELECT_PRINTER", error); self.notify("Printer gagal disimpan.")
-
-    def test_saved_printer(self):
-        address = self.db.setting("printer_address")
-        if not address:
-            self.notify("Pilih printer Bluetooth terlebih dahulu.")
-            return
-        self.print_raw_bluetooth(address, b"\x1b@KasirQU - TEST PRINT\nPrinter terhubung.\n\n\n")
-
-    def print_raw_bluetooth(self, address, payload):
+    def connect_printer(self, address, name="Printer Bluetooth"):
+        """Create one RFCOMM connection and keep it for all prints."""
         if platform != "android":
-            self.notify("Test printer Bluetooth hanya tersedia pada Android.")
-            return
+            self.notify("Koneksi printer Bluetooth hanya tersedia di Android.")
+            return False
+
         socket = None
         try:
             from jnius import autoclass
+
             BluetoothAdapter = autoclass("android.bluetooth.BluetoothAdapter")
             UUID = autoclass("java.util.UUID")
             adapter = BluetoothAdapter.getDefaultAdapter()
-            if adapter is None: raise RuntimeError("Bluetooth tidak tersedia.")
+            if adapter is None:
+                raise RuntimeError("Bluetooth tidak tersedia.")
+
             device = adapter.getRemoteDevice(address)
             uuid = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
-            socket = device.createRfcommSocketToServiceRecord(uuid)
-            try: adapter.cancelDiscovery()
-            except Exception: pass
-            socket.connect(); output = socket.getOutputStream(); output.write(payload); output.flush()
-            self.notify("Test print berhasil dikirim.")
-        except Exception as error:
-            self.log_error("RAW_BLUETOOTH_PRINT", error); self.notify("Gagal terhubung ke printer:\n" + str(error))
-        finally:
-            if socket is not None:
-                try: socket.close()
-                except Exception: pass
-
-    def get_bonded_devices(self):
-
-        if platform != "android":
-            return []
-
-        try:
-
-            from jnius import autoclass
-
-            BluetoothAdapter = autoclass(
-                "android.bluetooth.BluetoothAdapter"
-            )
-
-            adapter = (
-                BluetoothAdapter
-                .getDefaultAdapter()
-            )
-
-            if adapter is None:
-                return []
-
-            devices = (
-                adapter
-                .getBondedDevices()
-                .toArray()
-            )
-
-            result = []
-
-            for device in devices:
-
-                try:
-
-                    name = str(
-                        device.getName()
-                        or
-                        "Bluetooth Device"
-                    )
-
-                    address = str(
-                        device.getAddress()
-                    )
-
-                    result.append(
-                        (
-                            name,
-                            address
-                        )
-                    )
-
-                except Exception:
-                    pass
-
-            return result
-
-        except Exception as error:
-
-            self.log_error(
-                "BLUETOOTH_DEVICES",
-                error
-            )
-
-            return []
-
-    # --------------------------------------------------------
-    # BLUETOOTH PRINT
-    # --------------------------------------------------------
-
-    def print_bluetooth(self, address):
-
-        if not self.last_receipt:
-            self.notify("Belum ada struk yang bisa dicetak. Gunakan TEST PRINT di Pengaturan untuk mengetes koneksi.")
-            return
-
-        socket = None
-
-        try:
-
-            from jnius import autoclass
-
-            BluetoothAdapter = autoclass(
-                "android.bluetooth.BluetoothAdapter"
-            )
-
-            UUID = autoclass(
-                "java.util.UUID"
-            )
-
-            adapter = (
-                BluetoothAdapter
-                .getDefaultAdapter()
-            )
-
-            if adapter is None:
-
-                raise RuntimeError(
-                    "Bluetooth tidak tersedia."
-                )
-
-            device = (
-                adapter.getRemoteDevice(
-                    address
-                )
-            )
-
-            uuid = UUID.fromString(
-                "00001101-0000-1000-8000-00805F9B34FB"
-            )
-
-            socket = (
-                device
-                .createRfcommSocketToServiceRecord(
-                    uuid
-                )
-            )
 
             try:
                 adapter.cancelDiscovery()
             except Exception:
                 pass
 
+            socket = device.createRfcommSocketToServiceRecord(uuid)
             socket.connect()
+            output = socket.getOutputStream()
 
-            output = (
-                socket.getOutputStream()
-            )
+            # Close the previous connection only after the new connection is ready.
+            self.close_printer_connection()
+            self.printer_socket = socket
+            self.printer_output = output
+            self.printer_address = address
+            self.printer_name = name or "Printer Bluetooth"
 
-            output.write(
-                self.build_receipt_bytes()
-            )
+            self.db.set_setting("printer_address", address)
+            self.db.set_setting("printer_name", self.printer_name)
 
-            output.flush()
-
-            self.notify(
-                "Struk berhasil dikirim."
-            )
+            self.update_printer_status()
+            self.notify("Printer terhubung.\nTidak perlu menghubungkan ulang saat transaksi/cetak ulang.")
+            return True
 
         except Exception as error:
-
-            self.log_error(
-                "BLUETOOTH_PRINT",
-                error
-            )
-
-            self.notify(
-                "Gagal mencetak:\n"
-                +
-                str(error)
-            )
-
-        finally:
-
             if socket is not None:
-
                 try:
                     socket.close()
                 except Exception:
                     pass
+            self.log_error("CONNECT_PRINTER", error)
+            self.notify("Gagal menghubungkan printer:\n" + str(error))
+            return False
+
+    def select_printer(self, address):
+        # Backward-compatible alias for older calls.
+        return self.connect_printer(address, "Printer Bluetooth")
+
+    def update_printer_status(self):
+        try:
+            settings = self.root.ids.sm.get_screen("settings")
+            if self.is_printer_connected():
+                name = self.printer_name or self.printer_address or "Printer Bluetooth"
+                settings.ids.printer_status.text = "Printer: " + name + "  •  TERHUBUNG"
+            else:
+                settings.ids.printer_status.text = "Printer: belum terhubung"
+        except Exception:
+            pass
+
+    def test_printer(self):
+        return self.test_saved_printer()
+
+    def test_saved_printer(self):
+        if not self.is_printer_connected():
+            self.notify("Printer belum terhubung. Pilih & hubungkan printer di Pengaturan terlebih dahulu.")
+            return False
+
+        payload = (
+            b"\x1b@"
+            + b"\x1bE\x01"
+            + b"KasirQU - TEST PRINT\n"
+            + b"Printer terhubung.\n"
+            + b"Koneksi siap digunakan.\n\n\n"
+            + b"\x1bE\x00"
+        )
+        return self.send_to_printer(payload, success_message="Test print berhasil dikirim.")
+
+    def get_bonded_devices(self):
+        if platform != "android":
+            return []
+
+        try:
+            from jnius import autoclass
+            BluetoothAdapter = autoclass("android.bluetooth.BluetoothAdapter")
+            adapter = BluetoothAdapter.getDefaultAdapter()
+            if adapter is None:
+                return []
+
+            result = []
+            for device in adapter.getBondedDevices().toArray():
+                try:
+                    result.append((
+                        str(device.getName() or "Bluetooth Device"),
+                        str(device.getAddress())
+                    ))
+                except Exception:
+                    pass
+            return result
+
+        except Exception as error:
+            self.log_error("BLUETOOTH_DEVICES", error)
+            return []
+
+    def send_to_printer(self, payload, success_message="Struk berhasil dikirim."):
+        if not self.is_printer_connected():
+            self.notify("Printer belum terhubung. Hubungkan melalui Pengaturan.")
+            return False
+
+        try:
+            self.printer_output.write(payload)
+            self.printer_output.flush()
+            self.notify(success_message)
+            return True
+
+        except Exception as error:
+            # A broken socket must not be reused. The user can reconnect once
+            # from Settings; checkout/reprint will not open a second chooser.
+            self.log_error("PRINTER_SEND", error)
+            self.close_printer_connection()
+            self.update_printer_status()
+            self.notify(
+                "Printer terputus saat mencetak.\n"
+                "Hubungkan kembali melalui Pengaturan."
+            )
+            return False
+
+    def print_saved_receipt(self):
+        if not self.last_receipt:
+            self.notify("Belum ada struk yang bisa dicetak.")
+            return False
+
+        return self.send_to_printer(
+            self.build_receipt_bytes(),
+            success_message="Struk berhasil dicetak."
+        )
+
+    # Keamanan resource: tutup socket hanya ketika aplikasi benar-benar berhenti.
+    def on_stop(self):
+        try:
+            self.close_printer_connection()
+        except Exception as error:
+            self.log_error("PRINTER_CLOSE", error)
 
     # ========================================================
     # RECEIPT
