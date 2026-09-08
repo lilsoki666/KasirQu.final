@@ -156,7 +156,7 @@ class ModernButton(Button):
 
 class IconNavButton(ButtonBehavior, BoxLayout):
 
-    def __init__(self, name, icon, **kwargs):
+    def __init__(self, name="", icon="", **kwargs):
         super().__init__(orientation="vertical", spacing=dp(2), **kwargs)
         self.nav_name = name
         self.icon_path = icon
