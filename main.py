@@ -4,7 +4,7 @@ import shutil
 import sqlite3
 import traceback
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 
 from kivy.app import App
@@ -31,7 +31,7 @@ from kivy.utils import platform
 
 # ============================================================
 # KASIRQU
-# FINAL UI + IMAGE FIX
+# 2.0 PROFESSIONAL POS UPGRADE
 # ============================================================
 
 APP_NAME = "KasirQU"
@@ -432,27 +432,36 @@ KV = r'''
 
             padding: [dp(24), 0, dp(24), 0]
 
-            TextInput:
+            BoxLayout:
 
-                id: search
+                spacing: dp(7)
 
-                hint_text: "Cari produk atau SKU..."
+                TextInput:
 
-                multiline: False
+                    id: search
 
-                padding: [dp(12), dp(11)]
+                    hint_text: "Cari produk / scan barcode..."
 
-                background_normal: ""
+                    multiline: False
 
-                background_color: (1,1,1,1)
+                    padding: [dp(12), dp(11)]
 
-                foreground_color: (.08,.11,.16,1)
+                    background_normal: ""
 
-                cursor_color: (.12,.32,.78,1)
+                    background_color: (1,1,1,1)
 
-                on_text:
+                    foreground_color: (.08,.11,.16,1)
 
-                    root.refresh_products(self.text)
+                    cursor_color: (.12,.32,.78,1)
+
+                    on_text: root.refresh_products(self.text)
+                    on_text_validate: root.quick_add_by_code(self.text)
+
+                PrimaryButton:
+                    text: "SCAN"
+                    size_hint_x: None
+                    width: dp(72)
+                    on_release: root.open_scanner()
 
 
         Label:
@@ -754,7 +763,7 @@ KV = r'''
 
             size_hint_y: None
 
-            height: dp(205)
+            height: dp(370)
 
 
             BoxLayout:
@@ -768,14 +777,18 @@ KV = r'''
                 size_hint_y: 1
 
 
-        PrimaryButton:
+        BoxLayout:
+            size_hint_y: None
+            height: dp(46)
+            spacing: dp(8)
 
-            text: "EXPORT CSV"
+            PrimaryButton:
+                text: "EXPORT PENJUALAN"
+                on_release: root.export_csv()
 
-            on_release:
-
-                root.export_csv()
-
+            SoftButton:
+                text: "EXPORT STOK"
+                on_release: root.export_stock_csv()
 
         Widget:
 
@@ -783,177 +796,192 @@ KV = r'''
 <SettingsScreen>:
 
     BoxLayout:
-
         orientation: "vertical"
-
         padding: dp(12)
-
-        spacing: dp(10)
-
+        spacing: dp(8)
 
         canvas.before:
-
             Color:
-
                 rgba: (.95,.97,.99,1)
-
             Rectangle:
-
                 pos: self.pos
-
                 size: self.size
 
-
         ScreenTitle:
-
             text: "Pengaturan"
-
             size_hint_y: None
-
-            height: dp(52)
-
-
-        TextInput:
-
-            id: store
-
-            hint_text: "Nama usaha"
-
-            multiline: False
-
-            size_hint_y: None
-
-            height: dp(44)
-
-            padding: [dp(12),dp(10)]
-
-            background_normal: ""
-
-            background_color: (1,1,1,1)
-
-
-        TextInput:
-
-            id: address
-
-            hint_text: "Alamat / kontak"
-
-            multiline: False
-
-            size_hint_y: None
-
-            height: dp(44)
-
-            padding: [dp(12),dp(10)]
-
-            background_normal: ""
-
-            background_color: (1,1,1,1)
-
-
-        TextInput:
-
-            id: footer
-
-            hint_text: "Footer struk"
-
-            multiline: False
-
-            size_hint_y: None
-
-            height: dp(44)
-
-            padding: [dp(12),dp(10)]
-
-            background_normal: ""
-
-            background_color: (1,1,1,1)
-
-
-        Spinner:
-
-            id: paper
-
-            text: "58mm"
-
-            values: ["58mm","80mm"]
-
-            size_hint_y: None
-
-            height: dp(44)
-
-        TextInput:
-
-            id: tax
-
-            hint_text: "Pajak (%) - contoh 11"
-
-            input_filter: "float"
-
-            multiline: False
-
-            size_hint_y: None
-
-            height: dp(44)
-
-            padding: [dp(12), dp(10)]
-
-            background_normal: ""
-
-            background_color: (1,1,1,1)
-
-
-        PrimaryButton:
-
-            text: "HUBUNGKAN PRINTER BLUETOOTH"
-
-            on_release:
-
-                root.open_printer()
-
-
-        PrimaryButton:
-
-            text: "SIMPAN PENGATURAN"
-
-            on_release:
-
-                root.save()
-
-
-        SoftButton:
-
-            text: "BACKUP DATABASE"
-
-            on_release:
-
-                root.backup()
-
-        SoftButton:
-
-            text: "REFRESH DATA"
-
-            on_release:
-
-                root.on_enter()
-
-
-        Label:
-
-            text: "Printer thermal Bluetooth harus sudah dipairing melalui Android."
-
-            color: (.40,.44,.51,1)
-
-            font_size: "13sp"
-
-            halign: "left"
-
-            valign: "top"
-
-            text_size: self.width, None
-
-
-        Widget:
+            height: dp(48)
+
+        ScrollView:
+            do_scroll_x: False
+            bar_width: dp(3)
+
+            BoxLayout:
+                orientation: "vertical"
+                spacing: dp(8)
+                padding: [0,0,dp(3),dp(10)]
+                size_hint_y: None
+                height: self.minimum_height
+
+                Label:
+                    text: "TOKO & STRUK"
+                    color: (.40,.44,.51,1)
+                    bold: True
+                    size_hint_y: None
+                    height: dp(26)
+                    halign: "left"
+                    text_size: self.size
+
+                TextInput:
+                    id: store
+                    hint_text: "Nama usaha"
+                    multiline: False
+                    size_hint_y: None
+                    height: dp(44)
+                    padding: [dp(12),dp(10)]
+                    background_normal: ""
+                    background_color: (1,1,1,1)
+
+                TextInput:
+                    id: address
+                    hint_text: "Alamat / kontak"
+                    multiline: False
+                    size_hint_y: None
+                    height: dp(44)
+                    padding: [dp(12),dp(10)]
+                    background_normal: ""
+                    background_color: (1,1,1,1)
+
+                TextInput:
+                    id: footer
+                    hint_text: "Footer struk"
+                    multiline: False
+                    size_hint_y: None
+                    height: dp(44)
+                    padding: [dp(12),dp(10)]
+                    background_normal: ""
+                    background_color: (1,1,1,1)
+
+                Spinner:
+                    id: paper
+                    text: "58mm"
+                    values: ["58mm","80mm"]
+                    size_hint_y: None
+                    height: dp(44)
+
+                Label:
+                    text: "OPERASIONAL"
+                    color: (.40,.44,.51,1)
+                    bold: True
+                    size_hint_y: None
+                    height: dp(26)
+                    halign: "left"
+                    text_size: self.size
+
+                TextInput:
+                    id: cashier
+                    hint_text: "Nama kasir"
+                    multiline: False
+                    size_hint_y: None
+                    height: dp(44)
+                    padding: [dp(12),dp(10)]
+                    background_normal: ""
+                    background_color: (1,1,1,1)
+
+                Spinner:
+                    id: role
+                    text: "Owner"
+                    values: ["Owner","Admin","Kasir"]
+                    size_hint_y: None
+                    height: dp(44)
+
+                TextInput:
+                    id: tax
+                    hint_text: "Pajak (%) - contoh 11"
+                    input_filter: "float"
+                    multiline: False
+                    size_hint_y: None
+                    height: dp(44)
+                    padding: [dp(12),dp(10)]
+                    background_normal: ""
+                    background_color: (1,1,1,1)
+
+                TextInput:
+                    id: low_stock
+                    hint_text: "Batas stok menipis (contoh 5)"
+                    input_filter: "float"
+                    multiline: False
+                    size_hint_y: None
+                    height: dp(44)
+                    padding: [dp(12),dp(10)]
+                    background_normal: ""
+                    background_color: (1,1,1,1)
+
+                PrimaryButton:
+                    text: "SIMPAN PENGATURAN"
+                    on_release: root.save()
+
+                Label:
+                    text: "PRINTER THERMAL"
+                    color: (.40,.44,.51,1)
+                    bold: True
+                    size_hint_y: None
+                    height: dp(26)
+                    halign: "left"
+                    text_size: self.size
+
+                Label:
+                    id: printer_status
+                    text: "Printer: belum dipilih"
+                    color: (.08,.11,.16,1)
+                    size_hint_y: None
+                    height: dp(34)
+                    halign: "left"
+                    valign: "middle"
+                    text_size: self.size
+
+                PrimaryButton:
+                    text: "PILIH PRINTER BLUETOOTH"
+                    on_release: root.open_printer()
+
+                SoftButton:
+                    text: "TEST PRINT"
+                    on_release: root.test_printer()
+
+                Label:
+                    text: "DATA & KEAMANAN"
+                    color: (.40,.44,.51,1)
+                    bold: True
+                    size_hint_y: None
+                    height: dp(26)
+                    halign: "left"
+                    text_size: self.size
+
+                SoftButton:
+                    text: "BACKUP DATABASE"
+                    on_release: root.backup()
+
+                SoftButton:
+                    text: "RESTORE BACKUP TERAKHIR"
+                    on_release: root.restore_backup()
+
+                SoftButton:
+                    text: "CEK DATABASE"
+                    on_release: root.check_database()
+
+                SoftButton:
+                    text: "REFRESH DATA"
+                    on_release: root.on_enter()
+
+                Label:
+                    text: "Printer Bluetooth harus sudah dipairing melalui Android. Backup otomatis dibuat setelah transaksi berhasil."
+                    color: (.40,.44,.51,1)
+                    font_size: "12sp"
+                    size_hint_y: None
+                    height: dp(54)
+                    halign: "left"
+                    valign: "top"
+                    text_size: self.width, None
 
 
 BoxLayout:
@@ -1079,6 +1107,12 @@ class DB:
         )
 
         self.conn.row_factory = sqlite3.Row
+        try:
+            self.conn.execute("PRAGMA foreign_keys=ON")
+            self.conn.execute("PRAGMA journal_mode=WAL")
+            self.conn.execute("PRAGMA synchronous=NORMAL")
+        except Exception:
+            pass
 
         self.setup()
 
@@ -1130,6 +1164,24 @@ class DB:
                 key TEXT PRIMARY KEY,
                 value TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS stock_movements(
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                product_id INTEGER NOT NULL,
+                qty REAL NOT NULL DEFAULT 0,
+                movement_type TEXT NOT NULL DEFAULT 'ADJUSTMENT',
+                note TEXT DEFAULT '',
+                created_at TEXT NOT NULL,
+                FOREIGN KEY(product_id) REFERENCES products(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS app_users(
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                role TEXT NOT NULL DEFAULT 'Kasir',
+                pin TEXT DEFAULT '',
+                active INTEGER NOT NULL DEFAULT 1
+            );
             """
         )
 
@@ -1148,12 +1200,31 @@ class DB:
             if name not in columns:
                 cursor.execute(sql)
 
+
+        sales_columns = {row[1] for row in cursor.execute("PRAGMA table_info(sales)").fetchall()}
+        sales_migrations = {
+            "voided": "ALTER TABLE sales ADD COLUMN voided INTEGER NOT NULL DEFAULT 0",
+            "void_reason": "ALTER TABLE sales ADD COLUMN void_reason TEXT DEFAULT ''",
+            "cashier": "ALTER TABLE sales ADD COLUMN cashier TEXT DEFAULT ''",
+            "role": "ALTER TABLE sales ADD COLUMN role TEXT DEFAULT ''",
+        }
+        for name, sql in sales_migrations.items():
+            if name not in sales_columns:
+                cursor.execute(sql)
+
         defaults = {
             "store_name": "KasirQU",
             "store_address": "Alamat / Kontak",
             "receipt_footer": "Terima kasih telah berbelanja",
             "paper": "58mm",
-            "tax_percent": "0"
+            "tax_percent": "0",
+            "low_stock_threshold": "5",
+            "cashier_name": "Kasir",
+            "user_role": "Owner",
+            "receipt_header": "",
+            "auto_backup": "1",
+            "product_columns": "4",
+            "printer_address": ""
         }
 
         for key, value in defaults.items():
@@ -1301,9 +1372,11 @@ class DB:
                     payment_method,
                     paid,
                     change_amount,
-                    created_at
+                    created_at,
+                    cashier,
+                    role
                 )
-                VALUES(?,?,?,?,?,?,?,?,?)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?)
                 """,
                 (
                     invoice,
@@ -1314,7 +1387,9 @@ class DB:
                     method,
                     paid,
                     change,
-                    now
+                    now,
+                    self.setting("cashier_name") or "Kasir",
+                    self.setting("user_role") or "Owner"
                 )
             )
 
@@ -1373,10 +1448,11 @@ class DB:
                     SET stock=stock-?
                     WHERE id=?
                     """,
-                    (
-                        qty,
-                        item["id"]
-                    )
+                    (qty, item["id"])
+                )
+                cursor.execute(
+                    "INSERT INTO stock_movements(product_id,qty,movement_type,note,created_at) VALUES(?,?,?,?,?)",
+                    (item["id"], -qty, "SALE", invoice, now)
                 )
 
             self.conn.commit()
@@ -1422,6 +1498,93 @@ class DB:
             """,
             (limit,)
         ).fetchall()
+
+    def product_by_code(self, code):
+        code = safe_text(code).strip()
+        if not code:
+            return None
+        return self.conn.execute(
+            "SELECT * FROM products WHERE active=1 AND (sku=? OR name=?) LIMIT 1",
+            (code, code)
+        ).fetchone()
+
+    def low_stock_products(self):
+        threshold = safe_float(self.setting("low_stock_threshold"), 5)
+        return self.conn.execute(
+            "SELECT * FROM products WHERE active=1 AND stock<=? ORDER BY stock ASC, name COLLATE NOCASE",
+            (threshold,)
+        ).fetchall()
+
+    def restock_product(self, product_id, qty, note="Restock"):
+        qty = safe_float(qty)
+        if qty <= 0:
+            raise ValueError("Jumlah restock harus lebih dari 0.")
+        now = datetime.now().isoformat(timespec="seconds")
+        cur = self.conn.cursor()
+        try:
+            self.conn.execute("BEGIN")
+            cur.execute("UPDATE products SET stock=stock+? WHERE id=? AND active=1", (qty, product_id))
+            if cur.rowcount <= 0:
+                raise ValueError("Produk tidak ditemukan.")
+            cur.execute(
+                "INSERT INTO stock_movements(product_id,qty,movement_type,note,created_at) VALUES(?,?,?,?,?)",
+                (product_id, qty, "RESTOCK", note, now)
+            )
+            self.conn.commit()
+        except Exception:
+            self.conn.rollback(); raise
+
+    def stock_history(self, product_id, limit=50):
+        return self.conn.execute(
+            "SELECT * FROM stock_movements WHERE product_id=? ORDER BY id DESC LIMIT ?",
+            (product_id, limit)
+        ).fetchall()
+
+    def void_sale(self, sale_id, reason="Dibatalkan"):
+        sale = self.sale(sale_id)
+        if not sale:
+            raise ValueError("Transaksi tidak ditemukan.")
+        try:
+            if "voided" in sale.keys() and int(sale["voided"] or 0):
+                raise ValueError("Transaksi sudah dibatalkan.")
+        except Exception:
+            pass
+        cur = self.conn.cursor()
+        try:
+            self.conn.execute("BEGIN")
+            items = cur.execute("SELECT * FROM sale_items WHERE sale_id=?", (sale_id,)).fetchall()
+            for item in items:
+                if item["product_id"]:
+                    cur.execute("UPDATE products SET stock=stock+? WHERE id=?", (float(item["qty"]), item["product_id"]))
+                    cur.execute(
+                        "INSERT INTO stock_movements(product_id,qty,movement_type,note,created_at) VALUES(?,?,?,?,?)",
+                        (item["product_id"], float(item["qty"]), "VOID", f"Void {sale['invoice']}", datetime.now().isoformat(timespec="seconds"))
+                    )
+            cur.execute("UPDATE sales SET voided=1, void_reason=? WHERE id=?", (reason, sale_id))
+            self.conn.commit()
+        except Exception:
+            self.conn.rollback(); raise
+
+    def dashboard(self):
+        today = self.conn.execute(
+            """SELECT COUNT(*) n, COALESCE(SUM(total),0) total, COALESCE(SUM(discount),0) discount
+               FROM sales WHERE date(created_at)=date('now') AND COALESCE(voided,0)=0"""
+        ).fetchone()
+        items = self.conn.execute(
+            """SELECT COALESCE(SUM(si.qty),0) qty, COALESCE(SUM((si.price-COALESCE(p.cost,0))*si.qty),0) profit
+               FROM sale_items si JOIN sales s ON s.id=si.sale_id
+               LEFT JOIN products p ON p.id=si.product_id
+               WHERE date(s.created_at)=date('now') AND COALESCE(s.voided,0)=0"""
+        ).fetchone()
+        top = self.conn.execute(
+            """SELECT si.name, SUM(si.qty) qty FROM sale_items si JOIN sales s ON s.id=si.sale_id
+               WHERE COALESCE(s.voided,0)=0 GROUP BY si.name ORDER BY qty DESC LIMIT 5"""
+        ).fetchall()
+        return today, items, top
+
+    def integrity_check(self):
+        row = self.conn.execute("PRAGMA integrity_check").fetchone()
+        return bool(row and str(row[0]).lower() == "ok")
 
 
 # ============================================================
@@ -1756,6 +1919,23 @@ class POSScreen(Screen):
                 error
             )
 
+
+    def quick_add_by_code(self, code):
+        try:
+            product = self.app.db.product_by_code(code)
+            if product:
+                self.add_product(product)
+                self.ids.search.text = ""
+        except Exception as error:
+            self.app.log_error("BARCODE_ADD", error)
+
+    def open_scanner(self):
+        try:
+            self.app.open_barcode_scanner(self)
+        except Exception as error:
+            self.app.log_error("BARCODE_SCAN", error)
+            self.app.notify("Scanner tidak tersedia. Anda tetap bisa memakai scanner Bluetooth/USB atau mengetik barcode lalu Enter.")
+
     def open_cart_popup(self):
 
         if not self.cart_data:
@@ -1948,18 +2128,31 @@ class POSScreen(Screen):
 
         content.add_widget(scroll)
 
-        summary_row = BoxLayout(
+        # Ringkasan dibuat dua kolom yang seimbang: diskon tetap dekat
+        # sisi kiri, sedangkan total tidak menempel ke tepi kanan.
+        summary_row = GridLayout(
+            cols=2,
             size_hint_y=None,
             height=dp(48),
-            spacing=dp(10)
+            spacing=dp(8),
+            padding=[dp(2), 0, dp(2), 0]
         )
-        discount_row.size_hint_y = None
-        discount_row.height = dp(42)
+        discount_row.size_hint = (1, None)
+        discount_row.height = dp(40)
         summary_row.add_widget(discount_row)
-        total_label.size_hint_x = .52
-        total_label.halign = "right"
+
+        total_box = AnchorLayout(
+            anchor_x="center",
+            anchor_y="center",
+            size_hint_x=1
+        )
+        total_label.size_hint = (1, None)
+        total_label.height = dp(40)
+        total_label.halign = "center"
+        total_label.valign = "middle"
         total_label.text_size = (None, None)
-        summary_row.add_widget(total_label)
+        total_box.add_widget(total_label)
+        summary_row.add_widget(total_box)
         content.add_widget(summary_row)
 
         pay = make_button(
@@ -1973,10 +2166,10 @@ class POSScreen(Screen):
             title="Keranjang Belanja",
             content=content,
             size_hint=(None, None),
-            size=(dp(360), dp(360))
+            size=(dp(390), dp(420))
         ))
-        fit_popup(popup, content, min_width=dp(360), max_width=dp(520),
-                  min_height=dp(430), max_height_ratio=0.90, extra_height=dp(70))
+        fit_popup(popup, content, min_width=dp(380), max_width=dp(520),
+                  min_height=dp(440), max_height_ratio=0.90, extra_height=dp(70))
 
         def payment(*_):
 
@@ -2276,9 +2469,8 @@ class POSScreen(Screen):
                     "transactions"
                 )
 
-                self.app.notify(
-                    f"Transaksi {invoice} berhasil."
-                )
+                self.app.notify(f"Transaksi {invoice} berhasil.")
+                self.app.auto_backup()
 
                 # Printer setup is now managed from Pengaturan.
 
@@ -2399,6 +2591,12 @@ class ProductScreen(Screen):
 
                 row.add_widget(info)
 
+                restock_button = make_button("STOK +", primary=False, height=40)
+                restock_button.size_hint_x = None
+                restock_button.width = dp(68)
+                restock_button.bind(on_release=lambda *_, product=product: self.open_restock(product))
+                row.add_widget(restock_button)
+
                 edit_button = make_button("EDIT", primary=True, height=40)
                 edit_button.size_hint_x = None
                 edit_button.width = dp(62)
@@ -2427,6 +2625,9 @@ class ProductScreen(Screen):
             )
 
     def confirm_delete(self, product):
+        if (self.app.db.setting("user_role") or "Owner") == "Kasir":
+            self.app.notify("Akses ditolak. Role Kasir tidak dapat menghapus produk.")
+            return
         content = BoxLayout(orientation="vertical", spacing=dp(10), padding=dp(12))
         content.add_widget(text_label(
             f"Hapus produk \"{product['name']}\"?\nProduk tidak akan tampil lagi di kasir.",
@@ -2454,6 +2655,28 @@ class ProductScreen(Screen):
                 self.app.notify("Produk gagal dihapus.")
         remove.bind(on_release=do_delete)
         popup.open()
+
+
+    def open_restock(self, product):
+        content = BoxLayout(orientation="vertical", spacing=dp(8), padding=dp(12))
+        content.add_widget(text_label(f"{product['name']}\nStok saat ini: {float(product['stock']):g}", size=14, halign="center"))
+        qty = TextInput(hint_text="Jumlah stok masuk", input_filter="float", multiline=False, size_hint_y=None, height=dp(44))
+        note = TextInput(hint_text="Catatan (opsional)", multiline=False, size_hint_y=None, height=dp(44))
+        content.add_widget(qty); content.add_widget(note)
+        row = BoxLayout(size_hint_y=None, height=dp(44), spacing=dp(8))
+        cancel = make_button("Batal"); save = make_button("TAMBAH STOK", primary=True)
+        row.add_widget(cancel); row.add_widget(save); content.add_widget(row)
+        popup = style_popup(Popup(title="Restock Produk", content=content, size_hint=(None,None), size=(dp(370),dp(260))))
+        fit_popup(popup, content, min_width=dp(330), max_width=dp(460), min_height=dp(240), max_height_ratio=.65, extra_height=dp(56))
+        cancel.bind(on_release=popup.dismiss)
+        def do_save(*_):
+            try:
+                self.app.db.restock_product(product["id"], qty.text, note.text.strip() or "Restock manual")
+                popup.dismiss(); self.refresh(); self.app.root.ids.sm.get_screen("pos").refresh_products()
+                self.app.notify("Stok berhasil ditambahkan.")
+            except Exception as error:
+                self.app.log_error("RESTOCK", error); self.app.notify(str(error))
+        save.bind(on_release=do_save); popup.open()
 
     def open_editor(self, product=None):
 
@@ -2685,7 +2908,7 @@ class TransactionScreen(Screen):
                     text=(
                         f'{sale["invoice"]}\n'
                         f'{sale["created_at"]}\n'
-                        f'{sale["payment_method"]}'
+                        f'{sale["payment_method"]}' + ("  •  VOID" if ("voided" in sale.keys() and int(sale["voided"] or 0)) else "")
                     ),
                     color=TEXT,
                     halign="left",
@@ -2768,7 +2991,41 @@ class TransactionScreen(Screen):
         cart = [dict(item) for item in items]
         self.app.last_receipt = (sale['invoice'], sale['subtotal'], sale['discount'], sale['tax'], sale['total'], sale['payment_method'], sale['paid'], sale['change_amount'], cart)
         print_btn.bind(on_release=lambda *_: (popup.dismiss(), self.app.bluetooth_printer_dialog()))
+        
+        try:
+            if not int(sale["voided"] or 0):
+                void_btn = make_button("VOID TRANSAKSI", primary=False, height=42)
+                void_btn.background_color = DANGER; void_btn.color = WHITE
+                void_btn.bind(on_release=lambda *_: (popup.dismiss(), self.confirm_void(sale_id)))
+                content.add_widget(void_btn)
+        except Exception:
+            pass
+
         popup.open()
+
+
+    def confirm_void(self, sale_id):
+        sale = self.app.db.sale(sale_id)
+        if not sale:
+            return
+        content = BoxLayout(orientation="vertical", spacing=dp(8), padding=dp(12))
+        content.add_widget(text_label(f"Batalkan transaksi {sale['invoice']}?\nStok produk akan dikembalikan.", size=14, halign="center"))
+        reason = TextInput(hint_text="Alasan pembatalan", multiline=False, size_hint_y=None, height=dp(44))
+        content.add_widget(reason)
+        row = BoxLayout(size_hint_y=None, height=dp(44), spacing=dp(8))
+        cancel=make_button("Batal"); yes=make_button("VOID", primary=False); yes.background_color=DANGER; yes.color=WHITE
+        row.add_widget(cancel); row.add_widget(yes); content.add_widget(row)
+        popup=style_popup(Popup(title="Void Transaksi", content=content, size_hint=(None,None), size=(dp(380),dp(250))))
+        fit_popup(popup, content, min_width=dp(330), max_width=dp(460), min_height=dp(230), max_height_ratio=.65, extra_height=dp(58))
+        cancel.bind(on_release=popup.dismiss)
+        def run(*_):
+            try:
+                self.app.db.void_sale(sale_id, reason.text.strip() or "Dibatalkan")
+                popup.dismiss(); self.refresh(); self.app.root.ids.sm.get_screen("products").refresh(); self.app.root.ids.sm.get_screen("pos").refresh_products()
+                self.app.notify("Transaksi dibatalkan dan stok dikembalikan.")
+            except Exception as error:
+                self.app.log_error("VOID_SALE", error); self.app.notify(str(error))
+        yes.bind(on_release=run); popup.open()
 
 
 # ============================================================
@@ -2795,9 +3052,9 @@ class ReportScreen(Screen):
                     COALESCE(SUM(discount),0) discount,
                     COALESCE(SUM(tax),0) tax,
                     COALESCE(SUM(total),0) total,
-                    COALESCE((SELECT SUM(qty) FROM sale_items si JOIN sales sx ON sx.id=si.sale_id WHERE date(sx.created_at)=date('now')),0) items_sold
+                    COALESCE((SELECT SUM(qty) FROM sale_items si JOIN sales sx ON sx.id=si.sale_id WHERE date(sx.created_at)=date('now') AND COALESCE(sx.voided,0)=0),0) items_sold
                 FROM sales
-                WHERE date(created_at)=date('now')
+                WHERE date(created_at)=date('now') AND COALESCE(voided,0)=0
                 """
             ).fetchone()
 
@@ -2827,6 +3084,22 @@ class ReportScreen(Screen):
                     l.bold = True; r.bold = True; r.color = PRIMARY
                 grid.add_widget(l); grid.add_widget(r)
             box.add_widget(grid)
+
+            try:
+                today, items, top = self.app.db.dashboard()
+                profit = money(items["profit"])
+                extra_label = text_label(f"Laba kotor hari ini  :  {profit}", size=14, halign="left")
+                extra_label.size_hint_y=None; extra_label.height=dp(28); extra_label.bold=True
+                box.add_widget(extra_label)
+                low = self.app.db.low_stock_products()
+                low_text = ", ".join([f"{p['name']} ({float(p['stock']):g})" for p in low[:4]]) if low else "Tidak ada"
+                low_label = text_label("Stok menipis  :  " + low_text, size=12, halign="left")
+                low_label.size_hint_y=None; low_label.height=dp(42); box.add_widget(low_label)
+                top_text = ", ".join([f"{r['name']} ({float(r['qty']):g})" for r in top[:3]]) if top else "Belum ada"
+                top_label = text_label("Produk terlaris  :  " + top_text, size=12, halign="left")
+                top_label.size_hint_y=None; top_label.height=dp(42); box.add_widget(top_label)
+            except Exception as dashboard_error:
+                self.app.log_error("DASHBOARD", dashboard_error)
 
         except Exception as error:
 
@@ -2902,6 +3175,18 @@ class ReportScreen(Screen):
                 "Export CSV gagal."
             )
 
+    def export_stock_csv(self):
+        try:
+            path = os.path.join(self.app.user_data_dir, "stock_export.csv")
+            with open(path, "w", newline="", encoding="utf-8-sig") as file:
+                writer = csv.writer(file)
+                writer.writerow(["Nama","SKU/Barcode","Kategori","Harga Jual","Modal","Stok"])
+                for p in self.app.db.products():
+                    writer.writerow([p["name"],p["sku"],p["category"],p["price"],p["cost"],p["stock"]])
+            self.app.notify("CSV stok berhasil dibuat:\n" + path)
+        except Exception as error:
+            self.app.log_error("EXPORT_STOCK", error); self.app.notify("Export stok gagal.")
+
 
 # ============================================================
 # SETTINGS
@@ -2936,9 +3221,12 @@ class SettingsScreen(Screen):
             self.ids.paper.text = (
                 self.app.db.setting("paper") or "58mm"
             )
-            self.ids.tax.text = (
-                self.app.db.setting("tax_percent") or "0"
-            )
+            self.ids.tax.text = (self.app.db.setting("tax_percent") or "0")
+            self.ids.cashier.text = (self.app.db.setting("cashier_name") or "Kasir")
+            self.ids.role.text = (self.app.db.setting("user_role") or "Owner")
+            self.ids.low_stock.text = (self.app.db.setting("low_stock_threshold") or "5")
+            address = self.app.db.setting("printer_address")
+            self.ids.printer_status.text = "Printer: " + (address if address else "belum dipilih")
 
         except Exception as error:
 
@@ -2953,6 +3241,12 @@ class SettingsScreen(Screen):
         except Exception as error:
             self.app.log_error("SETTINGS_PRINTER", error)
             self.app.notify("Pengaturan printer gagal dibuka.")
+
+    def test_printer(self):
+        try:
+            self.app.test_saved_printer()
+        except Exception as error:
+            self.app.log_error("TEST_PRINTER", error); self.app.notify("Test printer gagal.")
 
     def save(self):
 
@@ -2976,9 +3270,10 @@ class SettingsScreen(Screen):
             self.app.db.set_setting(
                 "paper", self.ids.paper.text
             )
-            self.app.db.set_setting(
-                "tax_percent", str(max(0, safe_float(self.ids.tax.text)))
-            )
+            self.app.db.set_setting("tax_percent", str(max(0, safe_float(self.ids.tax.text))))
+            self.app.db.set_setting("cashier_name", self.ids.cashier.text.strip() or "Kasir")
+            self.app.db.set_setting("user_role", self.ids.role.text or "Owner")
+            self.app.db.set_setting("low_stock_threshold", str(max(0, safe_float(self.ids.low_stock.text, 5))))
 
             self.app.tax_percent = (
                 self.app.db.setting(
@@ -3000,37 +3295,25 @@ class SettingsScreen(Screen):
             )
 
     def backup(self):
-
         try:
-
-            self.app.db.conn.commit()
-
-            target = os.path.join(
-                self.app.user_data_dir,
-                "KasirQU_backup.db"
-            )
-
-            shutil.copy2(
-                self.app.db.path,
-                target
-            )
-
-            self.app.notify(
-                "Backup database berhasil:\n"
-                +
-                target
-            )
-
+            target = self.app.create_backup(manual=True)
+            self.app.notify("Backup database berhasil:\n" + target)
         except Exception as error:
+            self.app.log_error("DATABASE_BACKUP", error); self.app.notify("Backup gagal.")
 
-            self.app.log_error(
-                "DATABASE_BACKUP",
-                error
-            )
+    def restore_backup(self):
+        try:
+            self.app.restore_latest_backup()
+            self.app.notify("Restore berhasil. Tutup lalu buka kembali aplikasi agar seluruh tampilan memuat data terbaru.")
+        except Exception as error:
+            self.app.log_error("DATABASE_RESTORE", error); self.app.notify("Restore gagal:\n" + str(error))
 
-            self.app.notify(
-                "Backup gagal."
-            )
+    def check_database(self):
+        try:
+            ok = self.app.db.integrity_check()
+            self.app.notify("Database sehat (integrity_check: OK)." if ok else "Database terdeteksi bermasalah.")
+        except Exception as error:
+            self.app.log_error("DATABASE_CHECK", error); self.app.notify("Pengecekan database gagal.")
 
 
 # ============================================================
@@ -3374,6 +3657,10 @@ class UniversalPOS(App):
 
             sm = self.root.ids.sm
 
+            if name == "reports" and (self.db.setting("user_role") or "Owner") == "Kasir":
+                self.notify("Laporan hanya dapat dibuka oleh Owner/Admin.")
+                return
+
             names = list(
                 sm.screen_names
             )
@@ -3621,6 +3908,16 @@ class UniversalPOS(App):
         result_code,
         intent
     ):
+
+        if request_code == 9002:
+            try:
+                if intent is not None:
+                    code = safe_text(intent.getStringExtra("SCAN_RESULT")).strip()
+                    if code and getattr(self, "_barcode_screen", None):
+                        self._barcode_screen.quick_add_by_code(code)
+                return
+            except Exception as error:
+                self.log_error("BARCODE_RESULT", error); return
 
         if request_code != 9001:
             return
@@ -3913,6 +4210,56 @@ class UniversalPOS(App):
             self.log_error("SAVE_SELECTED_IMAGE", error)
             return ""
 
+
+    def open_barcode_scanner(self, pos_screen=None):
+        self._barcode_screen = pos_screen
+        if platform != "android":
+            self.notify("Di desktop, klik kolom pencarian lalu scan dengan barcode scanner USB/Bluetooth atau ketik kode dan Enter.")
+            return
+        try:
+            from jnius import autoclass
+            from android.activity import bind
+            Intent = autoclass("android.content.Intent")
+            intent = Intent("com.google.zxing.client.android.SCAN")
+            intent.putExtra("SCAN_MODE", "PRODUCT_MODE")
+            bind(on_activity_result=self.on_activity_result)
+            PythonActivity = autoclass("org.kivy.android.PythonActivity")
+            PythonActivity.mActivity.startActivityForResult(intent, 9002)
+        except Exception:
+            self.notify("Aplikasi scanner kompatibel belum tersedia. Anda bisa memakai scanner Bluetooth/USB atau ketik barcode lalu Enter.")
+
+    def create_backup(self, manual=False):
+        self.db.conn.commit()
+        backup_dir = os.path.join(self.user_data_dir, "backups")
+        os.makedirs(backup_dir, exist_ok=True)
+        stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        target = os.path.join(backup_dir, f"KasirQU_{stamp}.db")
+        shutil.copy2(self.db.path, target)
+        latest = os.path.join(self.user_data_dir, "KasirQU_backup.db")
+        shutil.copy2(self.db.path, latest)
+        # Keep last 10 timestamped backups
+        files = sorted([os.path.join(backup_dir,f) for f in os.listdir(backup_dir) if f.endswith('.db')], reverse=True)
+        for old in files[10:]:
+            try: os.remove(old)
+            except Exception: pass
+        return target
+
+    def restore_latest_backup(self):
+        latest = os.path.join(self.user_data_dir, "KasirQU_backup.db")
+        if not os.path.isfile(latest):
+            raise FileNotFoundError("Backup belum tersedia.")
+        self.db.conn.commit(); self.db.conn.close()
+        safety = self.db.path + ".before_restore"
+        if os.path.isfile(self.db.path): shutil.copy2(self.db.path, safety)
+        shutil.copy2(latest, self.db.path)
+        self.db = DB(self.db.path)
+
+    def auto_backup(self):
+        try:
+            if self.db.setting("auto_backup") != "0": self.create_backup(manual=False)
+        except Exception as error:
+            self.log_error("AUTO_BACKUP", error)
+
     # ========================================================
     # PRINT
     # ========================================================
@@ -4006,22 +4353,115 @@ class UniversalPOS(App):
 
         for name, address in devices:
 
-            btn = make_button(
-                f"{name}\n{address}",
-                height=60
+            row = Card(
+                orientation="horizontal",
+                size_hint_y=None,
+                height=dp(66),
+                padding=[dp(10), dp(7)],
+                spacing=dp(8)
             )
 
-            btn.bind(
+            info = BoxLayout(
+                orientation="vertical",
+                spacing=dp(1)
+            )
+            name_label = Label(
+                text=name or "Printer Bluetooth",
+                color=TEXT,
+                bold=True,
+                font_size="13sp",
+                halign="left",
+                valign="middle",
+                shorten=True,
+                shorten_from="right"
+            )
+            name_label.bind(size=lambda w, v: setattr(w, "text_size", v))
+            addr_label = Label(
+                text=address,
+                color=MUTED,
+                font_size="10sp",
+                halign="left",
+                valign="middle",
+                shorten=True,
+                shorten_from="right"
+            )
+            addr_label.bind(size=lambda w, v: setattr(w, "text_size", v))
+            info.add_widget(name_label)
+            info.add_widget(addr_label)
+
+            connect = make_button(
+                "PILIH",
+                primary=True,
+                height=40
+            )
+            connect.size_hint_x = None
+            connect.width = dp(72)
+            connect.bind(
                 on_release=lambda *_,
                 addr=address: (
                     popup.dismiss(),
-                    self.print_bluetooth(addr)
+                    self.select_printer(addr)
                 )
             )
 
-            content.add_widget(btn)
+            row.add_widget(info)
+            row.add_widget(connect)
+            content.add_widget(row)
+
+        fit_popup(
+            popup, content,
+            min_width=dp(330),
+            max_width=dp(500),
+            min_height=dp(210),
+            max_height_ratio=0.82,
+            extra_height=dp(70)
+        )
 
         popup.open()
+
+    def select_printer(self, address):
+        try:
+            self.db.set_setting("printer_address", address)
+            try:
+                settings = self.root.ids.sm.get_screen("settings")
+                settings.ids.printer_status.text = "Printer: " + address
+            except Exception:
+                pass
+            self.notify("Printer Bluetooth dipilih:\n" + address)
+        except Exception as error:
+            self.log_error("SELECT_PRINTER", error); self.notify("Printer gagal disimpan.")
+
+    def test_saved_printer(self):
+        address = self.db.setting("printer_address")
+        if not address:
+            self.notify("Pilih printer Bluetooth terlebih dahulu.")
+            return
+        self.print_raw_bluetooth(address, b"\x1b@KasirQU - TEST PRINT\nPrinter terhubung.\n\n\n")
+
+    def print_raw_bluetooth(self, address, payload):
+        if platform != "android":
+            self.notify("Test printer Bluetooth hanya tersedia pada Android.")
+            return
+        socket = None
+        try:
+            from jnius import autoclass
+            BluetoothAdapter = autoclass("android.bluetooth.BluetoothAdapter")
+            UUID = autoclass("java.util.UUID")
+            adapter = BluetoothAdapter.getDefaultAdapter()
+            if adapter is None: raise RuntimeError("Bluetooth tidak tersedia.")
+            device = adapter.getRemoteDevice(address)
+            uuid = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
+            socket = device.createRfcommSocketToServiceRecord(uuid)
+            try: adapter.cancelDiscovery()
+            except Exception: pass
+            socket.connect(); output = socket.getOutputStream(); output.write(payload); output.flush()
+            self.notify("Test print berhasil dikirim.")
+        except Exception as error:
+            self.log_error("RAW_BLUETOOTH_PRINT", error); self.notify("Gagal terhubung ke printer:\n" + str(error))
+        finally:
+            if socket is not None:
+                try: socket.close()
+                except Exception: pass
 
     def get_bonded_devices(self):
 
@@ -4094,6 +4534,7 @@ class UniversalPOS(App):
     def print_bluetooth(self, address):
 
         if not self.last_receipt:
+            self.notify("Belum ada struk yang bisa dicetak. Gunakan TEST PRINT di Pengaturan untuk mengetes koneksi.")
             return
 
         socket = None
@@ -4240,6 +4681,7 @@ class UniversalPOS(App):
             address.center(width),
             "-" * width,
             invoice,
+            ("Kasir: " + (self.db.setting("cashier_name") or "Kasir")),
             datetime.now().strftime(
                 "%d/%m/%Y %H:%M"
             ).center(width),
