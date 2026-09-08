@@ -1473,6 +1473,17 @@ def text_label(
     return label
 
 
+def style_popup(popup, compact=True):
+    """Apply a clean light dialog style instead of Kivy's dark default."""
+    popup.background = ""
+    popup.background_color = WHITE
+    popup.separator_color = BORDER
+    popup.title_color = TEXT
+    popup.title_size = "17sp"
+    popup.title_align = "left"
+    return popup
+
+
 # ============================================================
 # POS SCREEN
 # ============================================================
@@ -1919,12 +1930,12 @@ class POSScreen(Screen):
 
         content.add_widget(buttons)
 
-        popup = Popup(
+        popup = style_popup(Popup(
             title="Keranjang Belanja",
             content=content,
             size_hint=(.94, None),
-            size=(dp(430), min(dp(560), max(dp(360), Window.height - dp(100))))
-        )
+            size=(dp(430), min(dp(500), max(dp(340), Window.height * .78)))
+        ))
 
         clear.bind(
             on_release=lambda *_: (
@@ -2142,12 +2153,12 @@ class POSScreen(Screen):
 
         content.add_widget(buttons)
 
-        popup = Popup(
+        popup = style_popup(Popup(
             title="Pembayaran",
             content=content,
             size_hint=(.92, None),
-            size=(dp(430), min(dp(410), max(dp(330), Window.height - dp(100))))
-        )
+            size=(dp(430), min(dp(350), max(dp(300), Window.height * .55)))
+        ))
 
         cancel.bind(
             on_release=popup.dismiss
@@ -2380,7 +2391,7 @@ class ProductScreen(Screen):
         preview = Image(
             source="",
             size_hint_y=None,
-            height=dp(145),
+            height=dp(105),
             allow_stretch=True,
             keep_ratio=True
         )
@@ -2452,13 +2463,13 @@ class ProductScreen(Screen):
 
         content.add_widget(buttons)
 
-        popup = Popup(
+        popup = style_popup(Popup(
             title="Edit Produk" if product else "Tambah Produk",
             content=content,
             size_hint=(.94, None),
-            size=(dp(430), dp(560)),
+            size=(dp(430), min(dp(500), max(dp(360), Window.height * .78))),
             auto_dismiss=True
-        )
+        ))
 
         choose.bind(
             on_release=lambda *_:
@@ -2674,7 +2685,7 @@ class TransactionScreen(Screen):
         print_btn = make_button("Cetak Ulang", primary=True)
         buttons.add_widget(close); buttons.add_widget(print_btn)
         content.add_widget(buttons)
-        popup = Popup(title="Detail Transaksi", content=content, size_hint=(.92, None), size=(dp(430), dp(470)))
+        popup = style_popup(Popup(title="Detail Transaksi", content=content, size_hint=(.92, None), size=(dp(430), min(dp(440), max(dp(320), Window.height * .68)))))
         close.bind(on_release=popup.dismiss)
 
         cart = [dict(item) for item in items]
@@ -3338,12 +3349,12 @@ class UniversalPOS(App):
             content.add_widget(close)
 
             line_count = max(1, str(message).count("\n") + 1)
-            popup = Popup(
+            popup = style_popup(Popup(
                 title=APP_NAME,
                 content=content,
                 size_hint=(.88, None),
-                size=(dp(400), min(dp(260), dp(112 + line_count * 20)))
-            )
+                size=(dp(400), min(dp(220), max(dp(150), dp(105 + line_count * 22))))
+            ))
 
             close.bind(
                 on_release=popup.dismiss
@@ -3611,145 +3622,55 @@ class UniversalPOS(App):
     # --------------------------------------------------------
 
     def copy_content_uri(self, uri):
+        """Copy Android content:// image into app-private storage as a PNG.
 
+        Using BitmapFactory avoids provider/format issues that can leave a valid
+        gallery selection but an unreadable Kivy image path.
+        """
         input_stream = None
         output_stream = None
-
+        bitmap = None
+        target = ""
         try:
+            from jnius import autoclass
 
-            from jnius import (
-                autoclass,
-                jarray
-            )
-
-            PythonActivity = autoclass(
-                "org.kivy.android.PythonActivity"
-            )
-
-            resolver = (
-                PythonActivity
-                .mActivity
-                .getContentResolver()
-            )
-
-            input_stream = (
-                resolver.openInputStream(
-                    uri
-                )
-            )
-
+            PythonActivity = autoclass("org.kivy.android.PythonActivity")
+            resolver = PythonActivity.mActivity.getContentResolver()
+            input_stream = resolver.openInputStream(uri)
             if input_stream is None:
+                raise RuntimeError("Content URI tidak dapat dibaca.")
 
-                raise RuntimeError(
-                    "Content URI tidak dapat dibaca."
-                )
+            BitmapFactory = autoclass("android.graphics.BitmapFactory")
+            bitmap = BitmapFactory.decodeStream(input_stream)
+            if bitmap is None:
+                raise RuntimeError("Android tidak dapat mendekode gambar yang dipilih.")
 
-            mime = None
+            filename = "product_" + datetime.now().strftime("%Y%m%d%H%M%S%f") + ".png"
+            target = os.path.join(self.images_dir, filename)
 
-            try:
-
-                mime = resolver.getType(uri)
-
-                if mime:
-                    mime = str(mime)
-
-            except Exception:
-
-                mime = None
-
-            extension_map = {
-                "image/jpeg": ".jpg",
-                "image/jpg": ".jpg",
-                "image/png": ".png",
-                "image/webp": ".webp",
-                "image/gif": ".gif",
-                "image/bmp": ".bmp"
-            }
-
-            extension = extension_map.get(
-                mime,
-                ".jpg"
-            )
-
-            FileOutputStream = autoclass(
-                "java.io.FileOutputStream"
-            )
-
-            filename = (
-                "product_"
-                +
-                datetime.now().strftime(
-                    "%Y%m%d%H%M%S%f"
-                )
-                +
-                extension
-            )
-
-            target = os.path.join(
-                self.images_dir,
-                filename
-            )
-
-            output_stream = FileOutputStream(
-                target
-            )
-
-            buffer = jarray(
-                "b",
-                [0] * 8192
-            )
-
-            while True:
-
-                count = (
-                    input_stream.read(
-                        buffer
-                    )
-                )
-
-                if count <= 0:
-                    break
-
-                output_stream.write(
-                    buffer,
-                    0,
-                    count
-                )
-
+            FileOutputStream = autoclass("java.io.FileOutputStream")
+            output_stream = FileOutputStream(target)
+            CompressFormat = autoclass("android.graphics.Bitmap$CompressFormat")
+            if not bitmap.compress(CompressFormat.PNG, 100, output_stream):
+                raise RuntimeError("Gambar gagal dikonversi ke PNG.")
             output_stream.flush()
 
-            if not os.path.isfile(target):
-
-                raise RuntimeError(
-                    "File foto tidak berhasil dibuat."
-                )
-
+            if not os.path.isfile(target) or os.path.getsize(target) <= 0:
+                raise RuntimeError("File foto tidak berhasil dibuat.")
             return target
-
         except Exception as error:
-
-            self.log_error(
-                "COPY_CONTENT_URI",
-                error
-            )
-
+            self.log_error("COPY_CONTENT_URI", error)
             return ""
-
         finally:
-
             if output_stream is not None:
-
-                try:
-                    output_stream.close()
-                except Exception:
-                    pass
-
+                try: output_stream.close()
+                except Exception: pass
             if input_stream is not None:
-
-                try:
-                    input_stream.close()
-                except Exception:
-                    pass
+                try: input_stream.close()
+                except Exception: pass
+            if bitmap is not None:
+                try: bitmap.recycle()
+                except Exception: pass
 
     # --------------------------------------------------------
     # DESKTOP PICKER
@@ -3809,12 +3730,12 @@ class UniversalPOS(App):
                 buttons
             )
 
-            popup = Popup(
+            popup = style_popup(Popup(
                 title="Pilih Foto Produk",
                 content=root,
                 size_hint=(.94, None),
-                size=(dp(430), min(dp(620), max(dp(420), Window.height - dp(100))))
-            )
+                size=(dp(430), min(dp(560), max(dp(360), Window.height * .82)))
+            ))
 
             def choose(*_):
 
@@ -3860,86 +3781,35 @@ class UniversalPOS(App):
     # --------------------------------------------------------
 
     def save_selected_image(self, path):
-
         if not path:
             return ""
-
         try:
-
-            source = os.path.abspath(
-                str(path)
-            )
-
+            source = os.path.abspath(str(path))
             if not os.path.isfile(source):
                 return ""
-
-            images_dir = os.path.abspath(
-                self.images_dir
-            )
-
-            os.makedirs(
-                images_dir,
-                exist_ok=True
-            )
-
-            # Sudah internal
-            if (
-                source == images_dir
-                or
-                source.startswith(
-                    images_dir + os.sep
-                )
-            ):
-
+            images_dir = os.path.abspath(self.images_dir)
+            os.makedirs(images_dir, exist_ok=True)
+            if source.startswith(images_dir + os.sep):
                 return source
-
-            extension = (
-                os.path.splitext(source)[1]
-                .lower()
-            )
-
-            if extension not in (
-                ".jpg",
-                ".jpeg",
-                ".png",
-                ".webp",
-                ".gif",
-                ".bmp"
-            ):
-
-                extension = ".jpg"
 
             destination = os.path.join(
                 images_dir,
-                "product_"
-                +
-                datetime.now().strftime(
-                    "%Y%m%d%H%M%S%f"
-                )
-                +
-                extension
+                "product_" + datetime.now().strftime("%Y%m%d%H%M%S%f") + ".png"
             )
+            # Normalize to PNG when Pillow is present. This also strips problematic
+            # CMYK/EXIF combinations and gives Kivy one consistent image format.
+            try:
+                from PIL import Image as PILImage
+                with PILImage.open(source) as im:
+                    if im.mode not in ("RGB", "RGBA"):
+                        im = im.convert("RGBA")
+                    im.save(destination, "PNG", optimize=True)
+            except Exception:
+                shutil.copy2(source, destination)
 
-            shutil.copy2(
-                source,
-                destination
-            )
-
-            if not os.path.isfile(
-                destination
-            ):
-
-                return ""
-
-            return destination
-
+            return destination if os.path.isfile(destination) and os.path.getsize(destination) > 0 else ""
         except Exception as error:
-
-            self.log_error(
-                "SAVE_SELECTED_IMAGE",
-                error
-            )
-
+            self.log_error("SAVE_SELECTED_IMAGE", error)
             return ""
 
     # ========================================================
@@ -3983,12 +3853,12 @@ class UniversalPOS(App):
 
         content.add_widget(row)
 
-        popup = Popup(
+        popup = style_popup(Popup(
             title="Struk",
             content=content,
             size_hint=(.88, None),
-            size=(dp(400), dp(190))
-        )
+            size=(dp(400), dp(170))
+        ))
 
         bluetooth.bind(
             on_release=lambda *_: (
@@ -4026,12 +3896,12 @@ class UniversalPOS(App):
             padding=dp(8)
         )
 
-        popup = Popup(
+        popup = style_popup(Popup(
             title="Pilih Printer Bluetooth",
             content=content,
             size_hint=(.92, None),
-            size=(dp(430), min(dp(500), max(dp(300), Window.height - dp(100))))
-        )
+            size=(dp(430), min(dp(460), max(dp(300), Window.height * .72)))
+        ))
 
         for name, address in devices:
 
