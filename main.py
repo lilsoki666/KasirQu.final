@@ -24,6 +24,7 @@ from kivy.uix.textinput import TextInput
 from kivy.uix.spinner import Spinner
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.widget import Widget
+from kivy.uix.anchorlayout import AnchorLayout
 from kivy.uix.filechooser import FileChooserListView
 from kivy.graphics import Color, RoundedRectangle
 from kivy.clock import Clock
@@ -350,7 +351,7 @@ KV = r'''
 
     bold: True
 
-    halign: "left"
+    halign: "center"
 
     valign: "middle"
 
@@ -490,16 +491,18 @@ KV = r'''
 
             bar_width: dp(3)
 
-
             GridLayout:
 
                 id: products
 
                 cols: 4
 
+
                 spacing: dp(8)
 
                 padding: dp(2)
+
+                size_hint_x: 1
 
                 size_hint_y: None
 
@@ -594,56 +597,59 @@ KV = r'''
                 size: self.size
 
 
+        ScreenTitle:
+
+            text: "Produk"
+
+            size_hint_y: None
+
+            height: dp(48)
+
+
         BoxLayout:
 
             size_hint_y: None
 
-            height: dp(52)
+            height: dp(46)
 
-            spacing: dp(10)
+            spacing: dp(8)
 
+            TextInput:
 
-            ScreenTitle:
+                id: search
 
-                text: "Produk"
+                hint_text: "Cari nama, SKU, kategori..."
 
-                size_hint_x: .70
+                multiline: False
+
+                size_hint_x: 1
+
+                padding: [dp(12), dp(10)]
+
+                background_normal: ""
+
+                background_color: (1,1,1,1)
+
+                foreground_color: (.08,.11,.16,1)
+
+                cursor_color: (.12,.32,.78,1)
+
+                on_text:
+
+                    root.refresh(self.text)
 
 
             PrimaryButton:
 
-                text: "+ Produk"
+                text: "+ PRODUK"
 
-                size_hint_x: .30
+                size_hint_x: None
+
+                width: dp(112)
 
                 on_release:
 
                     root.open_editor()
-
-
-        TextInput:
-
-            id: search
-
-            hint_text: "Cari nama, SKU, kategori..."
-
-            multiline: False
-
-            size_hint_y: None
-
-            height: dp(44)
-
-            padding: [dp(12), dp(10)]
-
-            background_normal: ""
-
-            background_color: (1,1,1,1)
-
-            foreground_color: (.08,.11,.16,1)
-
-            on_text:
-
-                root.refresh(self.text)
 
 
         ScrollView:
@@ -797,241 +803,510 @@ KV = r'''
 <SettingsScreen>:
 
     BoxLayout:
+
         orientation: "vertical"
+
         padding: dp(12)
+
         spacing: dp(8)
 
         canvas.before:
+
             Color:
+
                 rgba: (.95,.97,.99,1)
+
             Rectangle:
+
                 pos: self.pos
+
                 size: self.size
 
+
         ScreenTitle:
+
             text: "Pengaturan"
+
             size_hint_y: None
+
             height: dp(48)
 
+
         ScrollView:
+
             do_scroll_x: False
+
             bar_width: dp(3)
 
             BoxLayout:
+
                 orientation: "vertical"
-                spacing: dp(8)
-                padding: [0,0,dp(3),dp(10)]
+
+                spacing: dp(10)
+
+                padding: [dp(2), 0, dp(5), dp(12)]
+
                 size_hint_y: None
+
                 height: self.minimum_height
 
-                Label:
-                    text: "TOKO & STRUK"
-                    color: (.40,.44,.51,1)
-                    bold: True
-                    size_hint_y: None
-                    height: dp(26)
-                    halign: "left"
-                    text_size: self.size
-
-                TextInput:
-                    id: store
-                    hint_text: "Nama usaha"
-                    multiline: False
-                    size_hint_y: None
-                    height: dp(44)
-                    padding: [dp(12),dp(10)]
-                    background_normal: ""
-                    background_color: (1,1,1,1)
-
-                TextInput:
-                    id: address
-                    hint_text: "Alamat / kontak"
-                    multiline: False
-                    size_hint_y: None
-                    height: dp(44)
-                    padding: [dp(12),dp(10)]
-                    background_normal: ""
-                    background_color: (1,1,1,1)
-
-                TextInput:
-                    id: footer
-                    hint_text: "Footer struk"
-                    multiline: False
-                    size_hint_y: None
-                    height: dp(44)
-                    padding: [dp(12),dp(10)]
-                    background_normal: ""
-                    background_color: (1,1,1,1)
-
-                Label:
-                    text: "LOGO STRUK"
-                    color: (.40,.44,.51,1)
-                    bold: True
-                    size_hint_y: None
-                    height: dp(24)
-                    halign: "left"
-                    text_size: self.size
 
                 Card:
-                    orientation: "horizontal"
-                    size_hint_y: None
-                    height: dp(92)
-                    padding: dp(8)
-                    spacing: dp(10)
 
-                    Image:
-                        id: receipt_logo_preview
-                        source: ""
-                        size_hint_x: None
-                        width: dp(78)
-                        allow_stretch: True
-                        keep_ratio: True
+                    orientation: "vertical"
+
+                    size_hint_y: None
+
+                    height: dp(360)
+
+                    padding: dp(12)
+
+                    spacing: dp(8)
 
                     Label:
-                        id: logo_status
-                        text: "Logo struk: belum dipilih"
-                        color: (.25,.29,.36,1)
-                        font_size: "12sp"
+
+                        text: "TOKO & STRUK"
+
+                        color: (.40,.44,.51,1)
+
+                        bold: True
+
+                        font_size: "13sp"
+
+                        size_hint_y: None
+
+                        height: dp(24)
+
                         halign: "left"
-                        valign: "middle"
+
                         text_size: self.size
 
+
+                    TextInput:
+
+                        id: store
+
+                        hint_text: "Nama usaha"
+
+                        multiline: False
+
+                        size_hint_y: None
+
+                        height: dp(44)
+
+                        padding: [dp(12),dp(10)]
+
+                        background_normal: ""
+
+                        background_color: (1,1,1,1)
+
+                        foreground_color: (.08,.11,.16,1)
+
+
+                    TextInput:
+
+                        id: address
+
+                        hint_text: "Alamat / kontak"
+
+                        multiline: False
+
+                        size_hint_y: None
+
+                        height: dp(44)
+
+                        padding: [dp(12),dp(10)]
+
+                        background_normal: ""
+
+                        background_color: (1,1,1,1)
+
+                        foreground_color: (.08,.11,.16,1)
+
+
+                    TextInput:
+
+                        id: footer
+
+                        hint_text: "Footer struk"
+
+                        multiline: False
+
+                        size_hint_y: None
+
+                        height: dp(44)
+
+                        padding: [dp(12),dp(10)]
+
+                        background_normal: ""
+
+                        background_color: (1,1,1,1)
+
+                        foreground_color: (.08,.11,.16,1)
+
+
                     BoxLayout:
-                        orientation: "vertical"
-                        size_hint_x: None
-                        width: dp(120)
-                        spacing: dp(5)
 
-                        SoftButton:
-                            text: "PILIH LOGO"
-                            height: dp(40)
-                            on_release: root.choose_receipt_logo()
+                        size_hint_y: None
 
-                        SoftButton:
-                            text: "HAPUS"
-                            height: dp(40)
-                            on_release: root.remove_receipt_logo()
+                        height: dp(104)
 
-                Spinner:
-                    id: paper
-                    text: "58mm"
-                    values: ["58mm","80mm"]
+                        spacing: dp(10)
+
+
+                        Card:
+
+                            size_hint_x: None
+
+                            width: dp(94)
+
+                            padding: dp(6)
+
+                            Image:
+
+                                id: receipt_logo_preview
+
+                                source: ""
+
+                                allow_stretch: True
+
+                                keep_ratio: True
+
+
+                        BoxLayout:
+
+                            orientation: "vertical"
+
+                            spacing: dp(5)
+
+
+                            Label:
+
+                                id: logo_status
+
+                                text: "Logo struk: belum dipilih"
+
+                                color: (.25,.29,.36,1)
+
+                                font_size: "11sp"
+
+                                halign: "left"
+
+                                valign: "middle"
+
+                                text_size: self.size
+
+
+                            BoxLayout:
+
+                                size_hint_y: None
+
+                                height: dp(40)
+
+                                spacing: dp(6)
+
+                                SoftButton:
+
+                                    text: "PILIH LOGO"
+
+                                    on_release: root.choose_receipt_logo()
+
+                                SoftButton:
+
+                                    text: "HAPUS"
+
+                                    on_release: root.remove_receipt_logo()
+
+
+                Card:
+
+                    orientation: "vertical"
+
                     size_hint_y: None
-                    height: dp(44)
 
-                Label:
-                    text: "OPERASIONAL"
-                    color: (.40,.44,.51,1)
-                    bold: True
+                    height: dp(310)
+
+                    padding: dp(12)
+
+                    spacing: dp(8)
+
+
+                    Label:
+
+                        text: "OPERASIONAL"
+
+                        color: (.40,.44,.51,1)
+
+                        bold: True
+
+                        font_size: "13sp"
+
+                        size_hint_y: None
+
+                        height: dp(24)
+
+                        halign: "left"
+
+                        text_size: self.size
+
+
+                    TextInput:
+
+                        id: cashier
+
+                        hint_text: "Nama kasir"
+
+                        multiline: False
+
+                        size_hint_y: None
+
+                        height: dp(44)
+
+                        padding: [dp(12),dp(10)]
+
+                        background_normal: ""
+
+                        background_color: (1,1,1,1)
+
+
+                    Spinner:
+
+                        id: role
+
+                        text: "Owner"
+
+                        values: ["Owner","Admin","Kasir"]
+
+                        size_hint_y: None
+
+                        height: dp(44)
+
+
+                    BoxLayout:
+
+                        size_hint_y: None
+
+                        height: dp(44)
+
+                        spacing: dp(8)
+
+                        TextInput:
+
+                            id: tax
+
+                            hint_text: "Pajak (%)"
+
+                            input_filter: "float"
+
+                            multiline: False
+
+                            padding: [dp(12),dp(10)]
+
+                            background_normal: ""
+
+                            background_color: (1,1,1,1)
+
+
+                        TextInput:
+
+                            id: low_stock
+
+                            hint_text: "Batas stok menipis"
+
+                            input_filter: "float"
+
+                            multiline: False
+
+                            padding: [dp(12),dp(10)]
+
+                            background_normal: ""
+
+                            background_color: (1,1,1,1)
+
+
+                    BoxLayout:
+
+                        size_hint_y: None
+
+                        height: dp(44)
+
+                        spacing: dp(8)
+
+                        Label:
+
+                            text: "Ukuran kertas"
+
+                            color: (.25,.29,.36,1)
+
+                            halign: "left"
+
+                            valign: "middle"
+
+                            text_size: self.size
+
+
+                        Spinner:
+
+                            id: paper
+
+                            text: "58mm"
+
+                            values: ["58mm","80mm"]
+
+                            size_hint_x: None
+
+                            width: dp(130)
+
+
+                    PrimaryButton:
+
+                        text: "SIMPAN PENGATURAN"
+
+                        on_release: root.save()
+
+
+                Card:
+
+                    orientation: "vertical"
+
                     size_hint_y: None
-                    height: dp(26)
-                    halign: "left"
-                    text_size: self.size
 
-                TextInput:
-                    id: cashier
-                    hint_text: "Nama kasir"
-                    multiline: False
+                    height: dp(238)
+
+                    padding: dp(12)
+
+                    spacing: dp(8)
+
+
+                    Label:
+
+                        text: "PRINTER THERMAL"
+
+                        color: (.40,.44,.51,1)
+
+                        bold: True
+
+                        font_size: "13sp"
+
+                        size_hint_y: None
+
+                        height: dp(24)
+
+                        halign: "left"
+
+                        text_size: self.size
+
+
+                    Label:
+
+                        id: printer_status
+
+                        text: "Printer: belum dipilih"
+
+                        color: (.08,.11,.16,1)
+
+                        size_hint_y: None
+
+                        height: dp(40)
+
+                        halign: "center"
+
+                        valign: "middle"
+
+                        text_size: self.size
+
+
+                    PrimaryButton:
+
+                        text: "PILIH PRINTER BLUETOOTH"
+
+                        on_release: root.open_printer()
+
+
+                    SoftButton:
+
+                        text: "TEST PRINT"
+
+                        on_release: root.test_printer()
+
+
+                    Label:
+
+                        text: "Printer dipilih satu kali di sini dan digunakan kembali untuk transaksi serta cetak ulang."
+
+                        color: (.40,.44,.51,1)
+
+                        font_size: "11sp"
+
+                        size_hint_y: None
+
+                        height: dp(42)
+
+                        halign: "center"
+
+                        valign: "middle"
+
+                        text_size: self.width, None
+
+
+                Card:
+
+                    orientation: "vertical"
+
                     size_hint_y: None
-                    height: dp(44)
-                    padding: [dp(12),dp(10)]
-                    background_normal: ""
-                    background_color: (1,1,1,1)
 
-                Spinner:
-                    id: role
-                    text: "Owner"
-                    values: ["Owner","Admin","Kasir"]
-                    size_hint_y: None
-                    height: dp(44)
+                    height: dp(250)
 
-                TextInput:
-                    id: tax
-                    hint_text: "Pajak (%) - contoh 11"
-                    input_filter: "float"
-                    multiline: False
-                    size_hint_y: None
-                    height: dp(44)
-                    padding: [dp(12),dp(10)]
-                    background_normal: ""
-                    background_color: (1,1,1,1)
+                    padding: dp(12)
 
-                TextInput:
-                    id: low_stock
-                    hint_text: "Batas stok menipis (contoh 5)"
-                    input_filter: "float"
-                    multiline: False
-                    size_hint_y: None
-                    height: dp(44)
-                    padding: [dp(12),dp(10)]
-                    background_normal: ""
-                    background_color: (1,1,1,1)
+                    spacing: dp(7)
 
-                PrimaryButton:
-                    text: "SIMPAN PENGATURAN"
-                    on_release: root.save()
 
-                Label:
-                    text: "PRINTER THERMAL"
-                    color: (.40,.44,.51,1)
-                    bold: True
-                    size_hint_y: None
-                    height: dp(26)
-                    halign: "left"
-                    text_size: self.size
+                    Label:
 
-                Label:
-                    id: printer_status
-                    text: "Printer: belum dipilih"
-                    color: (.08,.11,.16,1)
-                    size_hint_y: None
-                    height: dp(34)
-                    halign: "left"
-                    valign: "middle"
-                    text_size: self.size
+                        text: "DATA & KEAMANAN"
 
-                PrimaryButton:
-                    text: "PILIH PRINTER BLUETOOTH"
-                    on_release: root.open_printer()
+                        color: (.40,.44,.51,1)
 
-                SoftButton:
-                    text: "TEST PRINT"
-                    on_release: root.test_printer()
+                        bold: True
 
-                Label:
-                    text: "DATA & KEAMANAN"
-                    color: (.40,.44,.51,1)
-                    bold: True
-                    size_hint_y: None
-                    height: dp(26)
-                    halign: "left"
-                    text_size: self.size
+                        font_size: "13sp"
 
-                SoftButton:
-                    text: "BACKUP DATABASE"
-                    on_release: root.backup()
+                        size_hint_y: None
 
-                SoftButton:
-                    text: "RESTORE BACKUP TERAKHIR"
-                    on_release: root.restore_backup()
+                        height: dp(24)
 
-                SoftButton:
-                    text: "CEK DATABASE"
-                    on_release: root.check_database()
+                        halign: "left"
 
-                SoftButton:
-                    text: "REFRESH DATA"
-                    on_release: root.on_enter()
+                        text_size: self.size
 
-                Label:
-                    text: "Printer Bluetooth harus sudah dipairing melalui Android. Backup otomatis dibuat setelah transaksi berhasil."
-                    color: (.40,.44,.51,1)
-                    font_size: "12sp"
-                    size_hint_y: None
-                    height: dp(54)
-                    halign: "left"
-                    valign: "top"
-                    text_size: self.width, None
+
+                    SoftButton:
+
+                        text: "BACKUP DATABASE"
+
+                        on_release: root.backup()
+
+
+                    SoftButton:
+
+                        text: "RESTORE BACKUP TERAKHIR"
+
+                        on_release: root.restore_backup()
+
+
+                    SoftButton:
+
+                        text: "CEK DATABASE"
+
+                        on_release: root.check_database()
+
+
+                    SoftButton:
+
+                        text: "REFRESH DATA"
+
+                        on_release: root.on_enter()
 
 
 BoxLayout:
@@ -1745,104 +2020,96 @@ class POSScreen(Screen):
         self.render_cart_summary()
 
     def refresh_products(self, text=""):
-
         try:
-
             box = self.ids.products
-
             box.clear_widgets()
-
             products = self.app.db.products(text)
 
-            for product in products:
+            # Always use four equal columns. Empty slots remain empty so a
+            # single/two/three-product result never stretches the card.
+            box.cols = 4
 
+            def set_card_widths(*_):
+                try:
+                    available = box.width - dp(4) - (dp(8) * 3)
+                    card_width = max(dp(1), available / 4.0)
+                    for child in box.children:
+                        child.width = card_width
+                except Exception:
+                    pass
+
+            for product in products:
                 card = Card(
                     orientation="vertical",
+                    size_hint_x=None,
                     size_hint_y=None,
-                    height=dp(172),
-                    padding=dp(5),
-                    spacing=dp(3)
+                    width=dp(110),
+                    height=dp(194),
+                    padding=[dp(6), dp(6), dp(6), dp(6)],
+                    spacing=dp(4),
                 )
 
-                image_path = self.app.resolve_image(
-                    product["image"]
-                )
-
+                image_path = self.app.resolve_image(product["image"])
                 if image_path:
-
                     product_image = Image(
                         source=image_path,
                         size_hint_y=None,
-                        height=dp(82),
+                        height=dp(92),
                         allow_stretch=True,
-                        keep_ratio=True
+                        keep_ratio=True,
                     )
                     product_image.reload()
-
                     card.add_widget(product_image)
-
                 else:
-
                     placeholder = Label(
                         text="FOTO",
                         size_hint_y=None,
-                        height=dp(82),
+                        height=dp(92),
                         color=MUTED,
-                        font_size="14sp",
-                        bold=True
+                        font_size="11sp",
+                        bold=True,
+                        halign="center",
+                        valign="middle",
                     )
-
-                    card.add_widget(
-                        placeholder
-                    )
+                    placeholder.text_size = placeholder.size
+                    card.add_widget(placeholder)
 
                 info = Label(
                     text=(
-                        f'{product["name"]}\n'
-                        f'{money(product["price"])}'
-                        f'  â€¢  stok '
-                        f'{float(product["stock"]):g}'
+                        f'{safe_text(product["name"])}\n'
+                        f'{money(product["price"])}\n'
+                        f'| stok {float(product["stock"]):g}'
                     ),
                     color=TEXT,
-                    font_size="10.5sp",
+                    font_size="10sp",
                     bold=True,
                     halign="center",
-                    valign="middle"
+                    valign="middle",
+                    size_hint_y=None,
+                    height=dp(55),
                 )
-
                 info.bind(
-                    size=lambda widget, value:
-                    setattr(
-                        widget,
-                        "text_size",
-                        value
-                    )
+                    size=lambda widget, value: setattr(widget, "text_size", value)
                 )
-
                 card.add_widget(info)
 
-                button = make_button(
-                    "+ Tambah",
-                    primary=True,
-                    height=32
-                )
-
+                button = make_button("+ Tambah", primary=True, height=32)
+                button.size_hint_y = None
+                button.height = dp(32)
                 button.bind(
-                    on_release=lambda *_,
-                    product=product:
+                    on_release=lambda *_args, product=product:
                     self.add_product(product)
                 )
-
                 card.add_widget(button)
 
                 box.add_widget(card)
 
-        except Exception as error:
+            box.bind(width=set_card_widths)
+            Clock.schedule_once(set_card_widths, 0)
+            Clock.schedule_once(set_card_widths, 0.05)
 
-            self.app.log_error(
-                "POS_REFRESH_PRODUCTS",
-                error
-            )
+        except Exception as error:
+            self.app.log_error("POS_REFRESH_PRODUCTS", error)
 
     def add_product(self, product):
 
@@ -2066,7 +2333,11 @@ class POSScreen(Screen):
                 spacing=dp(8),
             )
             summary.add_widget(discount_row)
-            total_box = AnchorLayout(anchor_x="center", anchor_y="center")
+            total_box = BoxLayout(
+                orientation="vertical",
+                size_hint_x=1,
+                padding=[0, dp(2), 0, dp(2)],
+            )
             total_box.add_widget(total_label)
             summary.add_widget(total_box)
             content.add_widget(summary)
@@ -2086,7 +2357,7 @@ class POSScreen(Screen):
                             spacing=dp(4),
                         )
                         name = Label(
-                            text=f'{item.get("name", "Produk")}\n{item.get("qty", 0):g} x {money(item.get("price", 0))}',
+                            text=f'{safe_text(item.get("name", "Produk"))}\n{item.get("qty", 0):g} x {money(item.get("price", 0))}',
                             color=TEXT,
                             halign="left",
                             valign="middle",
@@ -2094,7 +2365,7 @@ class POSScreen(Screen):
                         name.bind(size=lambda w, v: setattr(w, "text_size", v))
                         row.add_widget(name)
 
-                        for symbol, delta, primary in (("-", -1, False), ("+", 1, True), ("Ã—", 0, False)):
+                        for symbol, delta, primary in (("-", -1, False), ("+", 1, True), ("x", 0, False)):
                             btn = make_button(symbol, primary=primary, height=42)
                             btn.size_hint_x = None
                             btn.width = dp(40)
@@ -2474,114 +2745,89 @@ class ProductScreen(Screen):
         self.refresh()
 
     def refresh(self, search=""):
-
         try:
-
             box = self.ids.list
-
             box.clear_widgets()
-
             products = self.app.db.products(search)
 
             for product in products:
-
                 row = Card(
                     orientation="horizontal",
                     size_hint_y=None,
-                    height=dp(92),
+                    height=dp(88),
                     spacing=dp(9),
-                    padding=dp(7)
+                    padding=dp(7),
                 )
 
-                image_path = (
-                    self.app.resolve_image(
-                        product["image"]
-                    )
-                )
-
+                image_path = self.app.resolve_image(product["image"])
                 if image_path:
-
                     image = Image(
                         source=image_path,
                         size_hint_x=None,
-                        width=dp(78),
+                        width=dp(72),
                         allow_stretch=True,
-                        keep_ratio=True
+                        keep_ratio=True,
                     )
                     image.reload()
-
                     row.add_widget(image)
-
                 else:
-
-                    placeholder = Label(
-                        text="FOTO",
-                        size_hint_x=None,
-                        width=dp(78),
-                        color=MUTED,
-                        bold=True
-                    )
-
                     row.add_widget(
-                        placeholder
+                        Label(
+                            text="FOTO",
+                            size_hint_x=None,
+                            width=dp(72),
+                            color=MUTED,
+                            bold=True,
+                        )
                     )
 
                 info = Label(
                     text=(
-                        f'{product["name"]}\n'
-                        f'{money(product["price"])}'
-                        f'  â€¢  stok '
-                        f'{float(product["stock"]):g}\n'
-                        f'{product["category"] or "Tanpa kategori"}'
+                        f'{safe_text(product["name"])}\n'
+                        f'{money(product["price"])}  |  stok {float(product["stock"]):g}\n'
+                        f'{safe_text(product["category"]) or "Tanpa kategori"}'
                     ),
                     color=TEXT,
+                    font_size="11sp",
                     halign="left",
-                    valign="middle"
+                    valign="middle",
                 )
-
-                info.bind(
-                    size=lambda widget, value:
-                    setattr(
-                        widget,
-                        "text_size",
-                        value
-                    )
-                )
-
+                info.bind(size=lambda widget, value: setattr(widget, "text_size", value))
                 row.add_widget(info)
 
-                restock_button = make_button("STOK +", primary=False, height=40)
+                restock_button = make_button("STOK +", primary=False, height=38)
                 restock_button.size_hint_x = None
-                restock_button.width = dp(68)
-                restock_button.bind(on_release=lambda *_, product=product: self.open_restock(product))
+                restock_button.width = dp(62)
+                restock_button.bind(
+                    on_release=lambda *_args, product=product:
+                    self.open_restock(product)
+                )
                 row.add_widget(restock_button)
 
-                edit_button = make_button("EDIT", primary=True, height=40)
+                edit_button = make_button("EDIT", primary=True, height=38)
                 edit_button.size_hint_x = None
-                edit_button.width = dp(62)
+                edit_button.width = dp(58)
                 edit_button.bind(
-                    on_release=lambda *_ , product=product: self.open_editor(product)
+                    on_release=lambda *_args, product=product:
+                    self.open_editor(product)
                 )
                 row.add_widget(edit_button)
 
-                delete_button = make_button("HAPUS", primary=False, height=40)
+                delete_button = make_button("HAPUS", primary=False, height=38)
                 delete_button.size_hint_x = None
-                delete_button.width = dp(66)
-                delete_button.background_color = (0.78, 0.12, 0.12, 1)
-                delete_button.color = (1, 1, 1, 1)
+                delete_button.width = dp(62)
+                delete_button.background_color = DANGER
+                delete_button.color = WHITE
                 delete_button.bind(
-                    on_release=lambda *_ , product=product: self.confirm_delete(product)
+                    on_release=lambda *_args, product=product:
+                    self.confirm_delete(product)
                 )
                 row.add_widget(delete_button)
 
                 box.add_widget(row)
 
         except Exception as error:
-
-            self.app.log_error(
-                "PRODUCT_REFRESH",
-                error
-            )
+            self.app.log_error("PRODUCT_REFRESH", error)
 
     def confirm_delete(self, product):
         if (self.app.db.setting("user_role") or "Owner") == "Kasir":
@@ -2867,7 +3113,7 @@ class TransactionScreen(Screen):
                     text=(
                         f'{sale["invoice"]}\n'
                         f'{sale["created_at"]}\n'
-                        f'{sale["payment_method"]}' + ("  â€¢  VOID" if ("voided" in sale.keys() and int(sale["voided"] or 0)) else "")
+                        f'{sale["payment_method"]}' + ("  |  VOID" if ("voided" in sale.keys() and int(sale["voided"] or 0)) else "")
                     ),
                     color=TEXT,
                     halign="left",
@@ -4694,7 +4940,7 @@ class UniversalPOS(App):
             return right[:width]
         max_left = max(1, width - len(right) - 1)
         if len(left) > max_left:
-            left = left[:max_left - 1] + "â€¦"
+            left = left[:max_left - 1] + "..."
         return left + (" " * (width - len(left) - len(right))) + right
 
     def _receipt_item_line(self, name, qty, price, line_total, width):
