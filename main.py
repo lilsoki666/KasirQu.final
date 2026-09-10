@@ -11,12 +11,13 @@ from kivy.app import App
 from kivy.lang import Builder
 from kivy.metrics import dp
 from kivy.core.window import Window
-from kivy.properties import StringProperty, NumericProperty, BooleanProperty
+from kivy.core.image import Image as CoreImage
+from kivy.properties import StringProperty, NumericProperty
 from kivy.uix.screenmanager import Screen, ScreenManager, SlideTransition
 from kivy.uix.popup import Popup
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.gridlayout import GridLayout
-from kivy.uix.button import Button
+from kivy.uix.button import Button, ButtonBehavior
 from kivy.uix.label import Label
 from kivy.uix.image import Image
 from kivy.uix.textinput import TextInput
@@ -24,6 +25,7 @@ from kivy.uix.spinner import Spinner
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.widget import Widget
 from kivy.uix.anchorlayout import AnchorLayout
+from kivy.uix.filechooser import FileChooserListView
 from kivy.graphics import Color, RoundedRectangle
 from kivy.clock import Clock
 from kivy.utils import platform
@@ -154,37 +156,32 @@ class ModernButton(Button):
 # ICON NAVIGATION
 # ============================================================
 
-class IconNavButton(BoxLayout):
-    """Toolbar item yang aman untuk Kivy/Android.
-
-    Tidak memakai ButtonBehavior karena kombinasi ButtonBehavior + BoxLayout
-    dapat memicu error konstruktor pada beberapa versi Kivy:
-    ButtonBehavior._init_() got multiple values for keyword argument.
-    """
+class IconNavButton(ButtonBehavior, BoxLayout):
 
     nav_name = StringProperty("")
     label_text = StringProperty("")
     icon_path = StringProperty("")
-    is_active = BooleanProperty(False)
 
     def __init__(self, **kwargs):
-        super().__init__(orientation="vertical", **kwargs)
-        self.spacing = dp(2)
+        # Do not require constructor positional arguments. Kivy's KV parser
+        # creates this widget first and applies `name`/`icon` as properties.
+        super().__init__(orientation="vertical", spacing=dp(2), **kwargs)
+
         self.size_hint_y = None
         self.height = dp(78)
-        self.padding = [dp(4), dp(4), dp(4), dp(4)]
+        self.padding = [dp(3), dp(3), dp(3), dp(3)]
         self.size_hint_x = 1
-        self._touch_start = None
 
         self.icon = Image(
-            source="",
+            source=self.icon_path,
             size_hint=(1, None),
             height=dp(46),
             allow_stretch=True,
             keep_ratio=True
         )
+
         self.label = Label(
-            text="",
+            text=self.label_text,
             font_size="10sp",
             bold=True,
             color=MUTED,
@@ -203,72 +200,32 @@ class IconNavButton(BoxLayout):
             self._nav_bg = RoundedRectangle(
                 pos=self.pos, size=self.size, radius=[dp(10)]
             )
-            Color(0.12, 0.32, 0.78, 0)
-            from kivy.graphics import Line
-            self._nav_border = Line(
-                rounded_rectangle=(self.x, self.y, self.width, self.height, dp(10)),
-                width=dp(2)
-            )
 
         self.bind(pos=self._update_bg, size=self._update_bg)
         self.bind(label_text=self._sync_label_text, icon_path=self._sync_icon)
-        self.bind(is_active=self._sync_active)
+
         Clock.schedule_once(self._sync_widgets, 0)
 
     def _sync_label_text(self, *_):
-        self.label.text = self.label_text
+        if hasattr(self, "label"):
+            self.label.text = self.label_text
 
     def _sync_icon(self, *_):
-        self.icon.source = self.icon_path or ""
-        try:
+        if hasattr(self, "icon"):
+            self.icon.source = self.icon_path
             self.icon.reload()
-        except Exception:
-            pass
 
     def _sync_widgets(self, *_):
         self._sync_label_text()
         self._sync_icon()
         self._update_bg()
-        self._sync_active()
 
     def _update_bg(self, *_):
         self._nav_bg.pos = self.pos
         self._nav_bg.size = self.size
-        self._nav_border.rounded_rectangle = (
-            self.x, self.y, self.width, self.height, dp(10)
-        )
 
-    def _sync_active(self, *_):
-        self._nav_border.rounded_rectangle = (
-            self.x, self.y, self.width, self.height, dp(10)
-        )
-        self._nav_border.rgba = (
-            0.12, 0.32, 0.78, 1 if self.is_active else 0
-        )
-        self.label.color = PRIMARY if self.is_active else MUTED
-
-    def on_touch_down(self, touch):
-        if self.collide_point(*touch.pos):
-            self._touch_start = touch.pos
-            return True
-        return super().on_touch_down(touch)
-
-    def on_touch_up(self, touch):
-        if self._touch_start is not None:
-            start = self._touch_start
-            self._touch_start = None
-            dx = touch.x - start[0]
-            dy = touch.y - start[1]
-            if abs(dx) < dp(20) and abs(dy) < dp(20) and self.collide_point(*touch.pos):
-                try:
-                    App.get_running_app().navigate(self.nav_name)
-                except Exception as error:
-                    try:
-                        App.get_running_app().log_error("NAV_TOUCH", error)
-                    except Exception:
-                        pass
-            return True
-        return super().on_touch_up(touch)
+    def on_release(self):
+        App.get_running_app().navigate(self.nav_name)
 
 
 # ============================================================
@@ -3521,8 +3478,7 @@ class SettingsScreen(Screen):
                 self.ids.footer.text
             )
 
-            logo_source = self.ids.receipt_logo_preview.source or self.app.db.setting("receipt_logo") or ""
-            logo_path = self.app.save_receipt_logo(logo_source) if logo_source else ""
+            logo_path = self.app.save_selected_image(self.ids.receipt_logo_preview.source)
             self.app.db.set_setting("receipt_logo", logo_path)
 
             self.app.db.set_setting(
@@ -3691,27 +3647,12 @@ class UniversalPOS(App):
         )
 
     # --------------------------------------------------------
-    # STARTUP DIAGNOSTIC (tidak mengubah sistem aplikasi)
-    # --------------------------------------------------------
-
-    def log_startup(self, stage):
-        try:
-            path = os.path.join(self.user_data_dir, "KasirQU_startup.log")
-            with open(path, "a", encoding="utf-8") as f:
-                f.write(datetime.now().isoformat() + " | " + str(stage) + "\\n")
-        except Exception:
-            pass
-
-    # --------------------------------------------------------
     # BUILD
     # --------------------------------------------------------
 
     def build(self):
 
         try:
-            # Catat tahap startup supaya jika Android berhenti setelah presplash,
-            # titik terakhir yang tercapai tetap diketahui tanpa mengubah fitur.
-            self.log_startup("BUILD_ENTER")
 
             data_dir = self.user_data_dir
 
@@ -3749,7 +3690,6 @@ class UniversalPOS(App):
             self.db = DB(
                 database_path
             )
-            self.log_startup("DATABASE_READY")
 
             self.tax_percent = (
                 self.db.setting(
@@ -3759,9 +3699,7 @@ class UniversalPOS(App):
                 "0"
             )
 
-            self.log_startup("LOADING_KV")
             root = Builder.load_string(KV)
-            self.log_startup("KV_READY")
 
             if root is None:
 
@@ -3875,7 +3813,6 @@ class UniversalPOS(App):
 
     def on_start(self):
 
-        self.log_startup("ON_START")
         Clock.schedule_once(
             self.finish_startup,
             .5
@@ -3910,12 +3847,10 @@ class UniversalPOS(App):
             sm = self.root.ids.sm
 
             sm.current = "pos"
-            self.log_startup("SCREEN_POS_READY")
 
             pos = sm.get_screen("pos")
 
             pos.refresh_products()
-            self.log_startup("PRODUCTS_READY")
 
         except Exception as error:
 
@@ -3979,7 +3914,6 @@ class UniversalPOS(App):
             )
 
             if current == target:
-                self.refresh_nav_highlight()
                 return
 
             sm.transition = SlideTransition(
@@ -3992,7 +3926,6 @@ class UniversalPOS(App):
             )
 
             sm.current = name
-            self.refresh_nav_highlight()
 
         except Exception as error:
 
@@ -4000,19 +3933,6 @@ class UniversalPOS(App):
                 "NAVIGATION",
                 error
             )
-
-    def refresh_nav_highlight(self):
-        try:
-            current = self.root.ids.sm.current
-            def walk(widget):
-                yield widget
-                for child in getattr(widget, "children", []):
-                    yield from walk(child)
-            for widget in walk(self.root):
-                if isinstance(widget, IconNavButton):
-                    widget.is_active = (widget.nav_name == current)
-        except Exception as error:
-            self.log_error("NAV_HIGHLIGHT", error)
 
     # --------------------------------------------------------
     # NOTIFY
@@ -4398,7 +4318,6 @@ class UniversalPOS(App):
     ):
 
         try:
-            from kivy.uix.filechooser import FileChooserListView
 
             chooser = FileChooserListView(
                 path=os.path.expanduser("~"),
@@ -4491,26 +4410,6 @@ class UniversalPOS(App):
                 "DESKTOP_IMAGE_PICKER",
                 error
             )
-
-    # --------------------------------------------------------
-    # SAVE RECEIPT LOGO
-    # --------------------------------------------------------
-
-    def save_receipt_logo(self, path):
-        """Simpan logo struk ke nama tetap agar path stabil di Android."""
-        if not path:
-            return ""
-        try:
-            source = self.resolve_image(path) or os.path.abspath(str(path))
-            if not os.path.isfile(source):
-                return ""
-            os.makedirs(self.images_dir, exist_ok=True)
-            destination = os.path.join(self.images_dir, "receipt_logo.png")
-            shutil.copy2(source, destination)
-            return destination if os.path.isfile(destination) and os.path.getsize(destination) > 0 else ""
-        except Exception as error:
-            self.log_error("SAVE_RECEIPT_LOGO", error)
-            return ""
 
     # --------------------------------------------------------
     # SAVE SELECTED IMAGE
@@ -4986,53 +4885,49 @@ class UniversalPOS(App):
     # ========================================================
 
     def _receipt_logo_raster(self, path, max_width):
-        """Konversi PNG/JPG logo ke bitmap ESC/POS GS v 0 1-bit."""
-        if not path:
+        """Ubah PNG/JPG logo menjadi ESC/POS raster 1-bit."""
+        if not path or not os.path.isfile(path):
             return b""
         try:
-            # CoreImage tidak di-load saat startup. Pada Android, provider gambar
-            # native hanya dibutuhkan ketika logo struk benar-benar dicetak.
-            from kivy.core.image import Image as CoreImage
-            path = self.resolve_image(path) or os.path.abspath(str(path))
-            if not os.path.isfile(path):
-                self.log_error("RECEIPT_LOGO_PATH", FileNotFoundError(path))
-                return b""
-            ci = CoreImage(path)
-            texture = ci.texture
+            image = CoreImage(path)
+            texture = image.texture
             if texture is None:
                 return b""
-            w, h = int(texture.width), int(texture.height)
+            w, h = texture.size
             pixels = texture.pixels
-            if not pixels or w < 1 or h < 1:
+            if not pixels or w <= 0 or h <= 0:
                 return b""
+
+            # Scale down agar logo aman untuk printer 58/80mm.
             scale = min(1.0, float(max_width) / float(w))
             nw = max(1, int(w * scale))
             nh = max(1, int(h * scale))
             width_bytes = (nw + 7) // 8
             data = bytearray(width_bytes * nh)
+
             for y in range(nh):
-                sy = min(h - 1, int((nh - 1 - y) / scale))
+                sy = min(h - 1, int(y / scale))
+                # Texture Kivy umumnya bottom-up; balik ke orientasi cetak.
+                sy = h - 1 - sy
                 for x in range(nw):
                     sx = min(w - 1, int(x / scale))
                     idx = (sy * w + sx) * 4
                     if idx + 3 >= len(pixels):
                         continue
-                    r, g, b, a = pixels[idx:idx+4]
-                    if a < 80:
-                        continue
-                    lum = 0.299 * r + 0.587 * g + 0.114 * b
-                    if lum < 210:
-                        data[y * width_bytes + x // 8] |= (0x80 >> (x % 8))
-            rows = [any(data[y*width_bytes:(y+1)*width_bytes]) for y in range(nh)]
-            if not any(rows):
-                self.log_error("RECEIPT_LOGO_EMPTY", RuntimeError("Logo bitmap kosong"))
-                return b""
-            top = next(i for i,v in enumerate(rows) if v)
-            bottom = len(rows)-1-next(i for i,v in enumerate(reversed(rows)) if v)
-            if top or bottom != nh-1:
-                data = data[top*width_bytes:(bottom+1)*width_bytes]
-                nh = bottom-top+1
-            header = bytes([0x1D,0x76,0x30,0x00, width_bytes&255,(width_bytes>>8)&255, nh&255,(nh>>8)&255])
+                    r, g, b, a = pixels[idx], pixels[idx + 1], pixels[idx + 2], pixels[idx + 3]
+                    if a < 60:
+                        black = False
+                    else:
+                        lum = (0.299 * r) + (0.587 * g) + (0.114 * b)
+                        black = lum < 205
+                    if black:
+                        pos = y * width_bytes + (x // 8)
+                        data[pos] |= (0x80 >> (x % 8))
+
+            # GS v 0: raster bit image, center sebelum image.
+            header = bytes([0x1d, 0x76, 0x30, 0x00,
+                            width_bytes & 0xff, (width_bytes >> 8) & 0xff,
+                            nh & 0xff, (nh >> 8) & 0xff])
             return header + bytes(data) + b"\n"
         except Exception as error:
             self.log_error("RECEIPT_LOGO_RASTER", error)
@@ -5073,10 +4968,7 @@ class UniversalPOS(App):
         address = self.db.setting("store_address") or ""
         footer = self.db.setting("receipt_footer") or "Terima kasih"
         cashier = self.db.setting("cashier_name") or "Kasir"
-        logo_setting = self.db.setting("receipt_logo") or ""
-        logo_path = self.resolve_image(logo_setting)
-        if logo_setting and not logo_path:
-            self.log_error("RECEIPT_LOGO_NOT_FOUND", FileNotFoundError(str(logo_setting)))
+        logo_path = self.resolve_image(self.db.setting("receipt_logo"))
 
         out = bytearray(b"\x1b\x40")
 
