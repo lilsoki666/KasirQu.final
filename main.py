@@ -11,7 +11,6 @@ from kivy.app import App
 from kivy.lang import Builder
 from kivy.metrics import dp
 from kivy.core.window import Window
-from kivy.core.image import Image as CoreImage
 from kivy.properties import StringProperty, NumericProperty, BooleanProperty
 from kivy.uix.screenmanager import Screen, ScreenManager, SlideTransition
 from kivy.uix.popup import Popup
@@ -25,7 +24,6 @@ from kivy.uix.spinner import Spinner
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.widget import Widget
 from kivy.uix.anchorlayout import AnchorLayout
-from kivy.uix.filechooser import FileChooserListView
 from kivy.graphics import Color, RoundedRectangle
 from kivy.clock import Clock
 from kivy.utils import platform
@@ -3693,12 +3691,27 @@ class UniversalPOS(App):
         )
 
     # --------------------------------------------------------
+    # STARTUP DIAGNOSTIC (tidak mengubah sistem aplikasi)
+    # --------------------------------------------------------
+
+    def log_startup(self, stage):
+        try:
+            path = os.path.join(self.user_data_dir, "KasirQU_startup.log")
+            with open(path, "a", encoding="utf-8") as f:
+                f.write(datetime.now().isoformat() + " | " + str(stage) + "\\n")
+        except Exception:
+            pass
+
+    # --------------------------------------------------------
     # BUILD
     # --------------------------------------------------------
 
     def build(self):
 
         try:
+            # Catat tahap startup supaya jika Android berhenti setelah presplash,
+            # titik terakhir yang tercapai tetap diketahui tanpa mengubah fitur.
+            self.log_startup("BUILD_ENTER")
 
             data_dir = self.user_data_dir
 
@@ -3736,6 +3749,7 @@ class UniversalPOS(App):
             self.db = DB(
                 database_path
             )
+            self.log_startup("DATABASE_READY")
 
             self.tax_percent = (
                 self.db.setting(
@@ -3745,7 +3759,9 @@ class UniversalPOS(App):
                 "0"
             )
 
+            self.log_startup("LOADING_KV")
             root = Builder.load_string(KV)
+            self.log_startup("KV_READY")
 
             if root is None:
 
@@ -3859,6 +3875,7 @@ class UniversalPOS(App):
 
     def on_start(self):
 
+        self.log_startup("ON_START")
         Clock.schedule_once(
             self.finish_startup,
             .5
@@ -3893,10 +3910,12 @@ class UniversalPOS(App):
             sm = self.root.ids.sm
 
             sm.current = "pos"
+            self.log_startup("SCREEN_POS_READY")
 
             pos = sm.get_screen("pos")
 
             pos.refresh_products()
+            self.log_startup("PRODUCTS_READY")
 
         except Exception as error:
 
@@ -4379,6 +4398,7 @@ class UniversalPOS(App):
     ):
 
         try:
+            from kivy.uix.filechooser import FileChooserListView
 
             chooser = FileChooserListView(
                 path=os.path.expanduser("~"),
@@ -4970,6 +4990,9 @@ class UniversalPOS(App):
         if not path:
             return b""
         try:
+            # CoreImage tidak di-load saat startup. Pada Android, provider gambar
+            # native hanya dibutuhkan ketika logo struk benar-benar dicetak.
+            from kivy.core.image import Image as CoreImage
             path = self.resolve_image(path) or os.path.abspath(str(path))
             if not os.path.isfile(path):
                 self.log_error("RECEIPT_LOGO_PATH", FileNotFoundError(path))
