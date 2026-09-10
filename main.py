@@ -17,7 +17,7 @@ from kivy.uix.screenmanager import Screen, ScreenManager, SlideTransition
 from kivy.uix.popup import Popup
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.gridlayout import GridLayout
-from kivy.uix.button import Button, ButtonBehavior
+from kivy.uix.button import Button
 from kivy.uix.label import Label
 from kivy.uix.image import Image
 from kivy.uix.textinput import TextInput
@@ -156,7 +156,13 @@ class ModernButton(Button):
 # ICON NAVIGATION
 # ============================================================
 
-class IconNavButton(ButtonBehavior, BoxLayout):
+class IconNavButton(BoxLayout):
+    """Toolbar item yang aman untuk Kivy/Android.
+
+    Tidak memakai ButtonBehavior karena kombinasi ButtonBehavior + BoxLayout
+    dapat memicu error konstruktor pada beberapa versi Kivy:
+    ButtonBehavior._init_() got multiple values for keyword argument.
+    """
 
     nav_name = StringProperty("")
     label_text = StringProperty("")
@@ -164,25 +170,23 @@ class IconNavButton(ButtonBehavior, BoxLayout):
     is_active = BooleanProperty(False)
 
     def __init__(self, **kwargs):
-        # Do not require constructor positional arguments. Kivy's KV parser
-        # creates this widget first and applies `name`/`icon` as properties.
-        super().__init__(orientation="vertical", spacing=dp(2), **kwargs)
-
+        super().__init__(orientation="vertical", **kwargs)
+        self.spacing = dp(2)
         self.size_hint_y = None
         self.height = dp(78)
-        self.padding = [dp(3), dp(3), dp(3), dp(3)]
+        self.padding = [dp(4), dp(4), dp(4), dp(4)]
         self.size_hint_x = 1
+        self._touch_start = None
 
         self.icon = Image(
-            source=self.icon_path,
+            source="",
             size_hint=(1, None),
             height=dp(46),
             allow_stretch=True,
             keep_ratio=True
         )
-
         self.label = Label(
-            text=self.label_text,
+            text="",
             font_size="10sp",
             bold=True,
             color=MUTED,
@@ -211,17 +215,17 @@ class IconNavButton(ButtonBehavior, BoxLayout):
         self.bind(pos=self._update_bg, size=self._update_bg)
         self.bind(label_text=self._sync_label_text, icon_path=self._sync_icon)
         self.bind(is_active=self._sync_active)
-
         Clock.schedule_once(self._sync_widgets, 0)
 
     def _sync_label_text(self, *_):
-        if hasattr(self, "label"):
-            self.label.text = self.label_text
+        self.label.text = self.label_text
 
     def _sync_icon(self, *_):
-        if hasattr(self, "icon"):
-            self.icon.source = self.icon_path
+        self.icon.source = self.icon_path or ""
+        try:
             self.icon.reload()
+        except Exception:
+            pass
 
     def _sync_widgets(self, *_):
         self._sync_label_text()
@@ -232,18 +236,41 @@ class IconNavButton(ButtonBehavior, BoxLayout):
     def _update_bg(self, *_):
         self._nav_bg.pos = self.pos
         self._nav_bg.size = self.size
-        if hasattr(self, "_nav_border"):
-            self._nav_border.rounded_rectangle = (self.x, self.y, self.width, self.height, dp(10))
+        self._nav_border.rounded_rectangle = (
+            self.x, self.y, self.width, self.height, dp(10)
+        )
 
     def _sync_active(self, *_):
-        if not hasattr(self, "_nav_border"):
-            return
-        self._nav_border.rounded_rectangle = (self.x, self.y, self.width, self.height, dp(10))
-        self._nav_border.rgba = (0.12, 0.32, 0.78, 1 if self.is_active else 0)
+        self._nav_border.rounded_rectangle = (
+            self.x, self.y, self.width, self.height, dp(10)
+        )
+        self._nav_border.rgba = (
+            0.12, 0.32, 0.78, 1 if self.is_active else 0
+        )
         self.label.color = PRIMARY if self.is_active else MUTED
 
-    def on_release(self):
-        App.get_running_app().navigate(self.nav_name)
+    def on_touch_down(self, touch):
+        if self.collide_point(*touch.pos):
+            self._touch_start = touch.pos
+            return True
+        return super().on_touch_down(touch)
+
+    def on_touch_up(self, touch):
+        if self._touch_start is not None:
+            start = self._touch_start
+            self._touch_start = None
+            dx = touch.x - start[0]
+            dy = touch.y - start[1]
+            if abs(dx) < dp(20) and abs(dy) < dp(20) and self.collide_point(*touch.pos):
+                try:
+                    App.get_running_app().navigate(self.nav_name)
+                except Exception as error:
+                    try:
+                        App.get_running_app().log_error("NAV_TOUCH", error)
+                    except Exception:
+                        pass
+            return True
+        return super().on_touch_up(touch)
 
 
 # ============================================================
