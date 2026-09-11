@@ -1,4 +1,5 @@
 import os
+import unicodedata
 import csv
 import shutil
 import sqlite3
@@ -87,6 +88,34 @@ def safe_float(value, default=0):
 def safe_text(value):
     try:
         return str(value or "")
+    except Exception:
+        return ""
+
+
+def printer_text(value):
+    """Normalisasi teks untuk printer ESC/POS.
+    Printer thermal Bluetooth murah umumnya tidak menerima UTF-8.
+    ASCII dijaga 100%% kompatibel agar tidak muncul karakter acak.
+    """
+    try:
+        text = safe_text(value)
+        replacements = {
+            "×": "x",
+            "•": "-",
+            "…": "...",
+            "–": "-",
+            "—": "-",
+            "“": '"',
+            "”": '"',
+            "‘": "'",
+            "’": "'",
+            "Rp.": "Rp",
+        }
+        for old, new in replacements.items():
+            text = text.replace(old, new)
+        text = unicodedata.normalize("NFKD", text)
+        text = text.encode("ascii", "ignore").decode("ascii")
+        return text
     except Exception:
         return ""
 
@@ -4784,6 +4813,25 @@ class UniversalPOS(App):
     # BLUETOOTH PRINT
     # --------------------------------------------------------
 
+    def _write_printer_data(self, output, payload):
+        """Kirim data Bluetooth bertahap agar printer thermal kecil tidak overflow."""
+        if not payload:
+            return
+        try:
+            from time import sleep
+            chunk_size = 512
+            for pos in range(0, len(payload), chunk_size):
+                output.write(payload[pos:pos + chunk_size])
+                try:
+                    output.flush()
+                except Exception:
+                    pass
+                sleep(0.008)
+        except Exception:
+            # Fallback ke satu write jika perangkat Java tidak menerima slicing.
+            output.write(payload)
+            output.flush()
+
     def print_bluetooth(self, address=None, silent=False):
 
         if not address:
@@ -4849,11 +4897,10 @@ class UniversalPOS(App):
                 socket.getOutputStream()
             )
 
-            output.write(
+            self._write_printer_data(
+                output,
                 self.build_receipt_bytes()
             )
-
-            output.flush()
 
             if not silent:
                 self.notify("Struk berhasil dikirim.")
@@ -4962,7 +5009,7 @@ class UniversalPOS(App):
 
         paper = self.db.setting("paper") or "58mm"
         width = 32 if paper == "58mm" else 48
-        logo_width = 384 if paper == "58mm" else 576
+        logo_width = 256 if paper == "58mm" else 384
 
         store = self.db.setting("store_name") or APP_NAME
         address = self.db.setting("store_address") or ""
@@ -4970,7 +5017,7 @@ class UniversalPOS(App):
         cashier = self.db.setting("cashier_name") or "Kasir"
         logo_path = self.resolve_image(self.db.setting("receipt_logo"))
 
-        out = bytearray(b"\x1b\x40")
+        out = bytearray(b"\x1b\x40\x1b\x74\x00")
 
         # Logo: center, raster image, lalu kembali ke kiri.
         logo = self._receipt_logo_raster(logo_path, logo_width)
@@ -4982,13 +5029,13 @@ class UniversalPOS(App):
         header = [store.center(width)]
         if address.strip():
             header.append(address.center(width))
-        out += ("\n".join(header) + "\n").encode("utf-8", "replace")
+        out += ("\n".join(header) + "\n").encode("ascii", "replace")
         out += b"\x1b\x45\x00"
         out += ("-" * width + "\n").encode("ascii")
 
-        out += (invoice + "\n").encode("utf-8", "replace")
-        out += (self._receipt_columns("Tanggal", datetime.now().strftime("%d/%m/%Y %H:%M"), width) + "\n").encode("utf-8", "replace")
-        out += (self._receipt_columns("Kasir", cashier, width) + "\n").encode("utf-8", "replace")
+        out += (invoice + "\n").encode("ascii", "replace")
+        out += (self._receipt_columns("Tanggal", datetime.now().strftime("%d/%m/%Y %H:%M"), width) + "\n").encode("ascii", "replace")
+        out += (self._receipt_columns("Kasir", cashier, width) + "\n").encode("ascii", "replace")
         out += ("-" * width + "\n").encode("ascii")
 
         for item in cart:
@@ -4996,7 +5043,7 @@ class UniversalPOS(App):
                 item["name"], item["qty"], item["price"],
                 item["qty"] * item["price"], width
             ):
-                out += (line + "\n").encode("utf-8", "replace")
+                out += (line + "\n").encode("ascii", "replace")
 
         out += ("-" * width + "\n").encode("ascii")
         totals = [
@@ -5012,13 +5059,13 @@ class UniversalPOS(App):
             line = self._receipt_columns(label, value, width)
             if label == "TOTAL":
                 out += b"\x1b\x45\x01"
-                out += (line + "\n").encode("utf-8", "replace")
+                out += (line + "\n").encode("ascii", "replace")
                 out += b"\x1b\x45\x00"
             else:
-                out += (line + "\n").encode("utf-8", "replace")
+                out += (line + "\n").encode("ascii", "replace")
 
         out += ("-" * width + "\n").encode("ascii")
-        out += footer.center(width).encode("utf-8", "replace") + b"\n\n\n"
+        out += footer.center(width).encode("ascii", "replace") + b"\n\n\n"
         out += b"\x1d\x56\x00"
         return bytes(out)
 
