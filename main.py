@@ -1,9 +1,9 @@
 import os
-import unicodedata
 import csv
 import shutil
 import sqlite3
 import traceback
+import unicodedata
 
 from datetime import datetime, timedelta
 from decimal import Decimal, ROUND_HALF_UP
@@ -93,31 +93,23 @@ def safe_text(value):
 
 
 def printer_text(value):
-    """Normalisasi teks untuk printer ESC/POS.
-    Printer thermal Bluetooth murah umumnya tidak menerima UTF-8.
-    ASCII dijaga 100% kompatibel agar tidak muncul karakter acak.
-    """
+    """Teks khusus printer: hanya ASCII agar byte UTF-8 tidak menjadi simbol acak."""
     try:
-        text = safe_text(value)
+        s = safe_text(value)
         replacements = {
-            "×": "x",
-            "•": "-",
-            "…": "...",
-            "–": "-",
-            "—": "-",
-            "“": '"',
-            "”": '"',
-            "‘": "'",
-            "’": "'",
-            "Rp.": "Rp",
+            "Ã—": "x", "â€¢": "-", "Â·": "-", "â€“": "-", "â€”": "-",
+            "â€¦": "...", "â€œ": '"', "â€": '"', "â€˜": "'", "â€™": "'",
         }
-        for old, new in replacements.items():
-            text = text.replace(old, new)
-        text = unicodedata.normalize("NFKD", text)
-        text = text.encode("ascii", "ignore").decode("ascii")
-        return text
+        for src, dst in replacements.items():
+            s = s.replace(src, dst)
+        s = unicodedata.normalize("NFKD", s)
+        return s.encode("ascii", "ignore").decode("ascii")
     except Exception:
         return ""
+
+
+def printer_bytes(value):
+    return printer_text(value).encode("ascii", "replace")
 
 
 # ============================================================
@@ -192,6 +184,8 @@ class IconNavButton(ButtonBehavior, BoxLayout):
     icon_path = StringProperty("")
 
     def __init__(self, **kwargs):
+        # Do not require constructor positional arguments. Kivy's KV parser
+        # creates this widget first and applies `name`/`icon` as properties.
         super().__init__(orientation="vertical", spacing=dp(2), **kwargs)
 
         self.size_hint_y = None
@@ -1552,6 +1546,7 @@ class DB:
             if name not in columns:
                 cursor.execute(sql)
 
+
         sales_columns = {row[1] for row in cursor.execute("PRAGMA table_info(sales)").fetchall()}
         sales_migrations = {
             "voided": "ALTER TABLE sales ADD COLUMN voided INTEGER NOT NULL DEFAULT 0",
@@ -1998,6 +1993,7 @@ def text_label(
 
 
 def style_popup(popup, compact=True):
+    """Apply a clean light dialog style instead of Kivy's dark default."""
     popup.background = ""
     popup.background_color = WHITE
     popup.separator_color = BORDER
@@ -2009,9 +2005,11 @@ def style_popup(popup, compact=True):
 
 def fit_popup(popup, content, min_width=dp(300), max_width=dp(460),
               min_height=dp(150), max_height_ratio=0.88, extra_height=dp(58)):
+    """Size dialogs from their actual content, capped to the screen."""
     def _fit(_dt):
         try:
             width = min(max_width, max(min_width, Window.width * 0.92))
+            # BoxLayout.minimum_height is reliable after its first layout pass.
             wanted = content.minimum_height + extra_height
             height = min(
                 max_height_ratio * Window.height,
@@ -2048,6 +2046,8 @@ class POSScreen(Screen):
             box.clear_widgets()
             products = self.app.db.products(text)
 
+            # Always use four equal columns. Empty slots remain empty so a
+            # single/two/three-product result never stretches the card.
             box.cols = 4
 
             def set_card_widths(*_):
@@ -2276,6 +2276,11 @@ class POSScreen(Screen):
             self.app.notify("Scanner tidak tersedia. Anda tetap bisa memakai scanner Bluetooth/USB atau mengetik barcode lalu Enter.")
 
     def open_cart_popup(self):
+        """Open the shopping cart using conservative Kivy layouts.
+
+        This method intentionally avoids dynamic size_hint/height combinations
+        that can trigger Android/Kivy layout exceptions while a Popup is opening.
+        """
         try:
             if not self.cart_data:
                 self.app.notify("Keranjang masih kosong.")
@@ -2716,6 +2721,8 @@ class POSScreen(Screen):
                 self.app.notify(f"Transaksi {invoice} berhasil.")
                 self.app.auto_backup()
 
+                # Gunakan printer yang sudah disimpan di Pengaturan. Tidak perlu
+                # memilih perangkat Bluetooth lagi setelah setiap transaksi.
                 Clock.schedule_once(lambda *_: self.app.auto_print_saved_receipt(), 0.15)
 
             except Exception as error:
@@ -4031,11 +4038,13 @@ class UniversalPOS(App):
             if not path:
                 return ""
 
+            # Absolute path
             absolute = os.path.abspath(path)
 
             if os.path.isfile(absolute):
                 return absolute
 
+            # Filename only
             filename = os.path.basename(path)
 
             internal = os.path.join(
@@ -4100,6 +4109,8 @@ class UniversalPOS(App):
                 "image/*"
             )
 
+            # Sangat penting:
+            # izin URI tetap dipertahankan jika Android mendukungnya.
             try:
 
                 intent.addFlags(
@@ -4179,6 +4190,7 @@ class UniversalPOS(App):
             if uri is None:
                 return
 
+            # Pertahankan izin URI jika tersedia.
             try:
 
                 from jnius import autoclass
@@ -4266,6 +4278,11 @@ class UniversalPOS(App):
     # --------------------------------------------------------
 
     def copy_content_uri(self, uri):
+        """Copy Android content:// image into app-private storage as a PNG.
+
+        Using BitmapFactory avoids provider/format issues that can leave a valid
+        gallery selection but an unreadable Kivy image path.
+        """
         input_stream = None
         output_stream = None
         bitmap = None
@@ -4435,6 +4452,8 @@ class UniversalPOS(App):
                 images_dir,
                 "product_" + datetime.now().strftime("%Y%m%d%H%M%S%f") + ".png"
             )
+            # Normalize to PNG when Pillow is present. This also strips problematic
+            # CMYK/EXIF combinations and gives Kivy one consistent image format.
             try:
                 from PIL import Image as PILImage
                 with PILImage.open(source) as im:
@@ -4476,6 +4495,7 @@ class UniversalPOS(App):
         shutil.copy2(self.db.path, target)
         latest = os.path.join(self.user_data_dir, "KasirQU_backup.db")
         shutil.copy2(self.db.path, latest)
+        # Keep last 10 timestamped backups
         files = sorted([os.path.join(backup_dir,f) for f in os.listdir(backup_dir) if f.endswith('.db')], reverse=True)
         for old in files[10:]:
             try: os.remove(old)
@@ -4499,424 +4519,11 @@ class UniversalPOS(App):
             self.log_error("AUTO_BACKUP", error)
 
     # ========================================================
-    # PRINT SYSTEM (FINAL - LOGO + TEXT + BLUETOOTH CHUNKING)
+    # PRINT
     # ========================================================
 
-    def _receipt_logo_raster(self, path, max_width):
-        """Convert receipt logo to ESC/POS 1-bit raster.
-
-        This version follows the working implementation from main (1):
-        it reads the Kivy texture directly and explicitly sets BLACK bits,
-        avoiding the PIL mode-1 polarity issue that can make a logo disappear.
-        """
-        if not path or not os.path.isfile(path):
-            return b""
-        try:
-            image = CoreImage(path)
-            texture = image.texture
-            if texture is None:
-                return b""
-
-            w, h = texture.size
-            pixels = texture.pixels
-            if not pixels or w <= 0 or h <= 0:
-                return b""
-
-            # Keep logo within printer head width.
-            scale = min(1.0, float(max_width) / float(w))
-            nw = max(1, int(w * scale))
-            nh = max(1, int(h * scale))
-
-            width_bytes = (nw + 7) // 8
-            data = bytearray(width_bytes * nh)
-
-            for y in range(nh):
-                sy = min(h - 1, int(y / scale))
-                # Kivy texture pixels are normally bottom-up.
-                sy = h - 1 - sy
-
-                for x in range(nw):
-                    sx = min(w - 1, int(x / scale))
-                    idx = (sy * w + sx) * 4
-                    if idx + 3 >= len(pixels):
-                        continue
-
-                    r = pixels[idx]
-                    g = pixels[idx + 1]
-                    b = pixels[idx + 2]
-                    a = pixels[idx + 3]
-
-                    if a < 60:
-                        black = False
-                    else:
-                        lum = (0.299 * r) + (0.587 * g) + (0.114 * b)
-                        black = lum < 205
-
-                    if black:
-                        pos = y * width_bytes + (x // 8)
-                        data[pos] |= (0x80 >> (x % 8))
-
-            header = bytes([
-                0x1D, 0x76, 0x30, 0x00,
-                width_bytes & 0xFF,
-                (width_bytes >> 8) & 0xFF,
-                nh & 0xFF,
-                (nh >> 8) & 0xFF,
-            ])
-
-            # Center image, print raster, then restore left alignment.
-            return b"\x1b\x61\x01" + header + bytes(data) + b"\n" + b"\x1b\x61\x00"
-
-        except Exception as error:
-            self.log_error("RECEIPT_LOGO_RASTER", error)
-            return b""
-
-    def _receipt_columns(self, left, right, width):
-        left = printer_text(left).replace("\n", " ")
-        right = printer_text(right).replace("\n", " ")
-
-        if len(right) >= width:
-            return right[:width]
-
-        max_left = max(1, width - len(right) - 1)
-        if len(left) > max_left:
-            left = left[:max_left - 1] + "..."
-
-        return left + (" " * (width - len(left) - len(right))) + right
-
-    def _receipt_item_line(self, name, qty, price, line_total, width):
-        return [
-            printer_text(name)[:width],
-            self._receipt_columns(
-                f"{qty:g} x {money(price)}",
-                money(line_total),
-                width,
-            ),
-        ]
-
-    def build_receipt_bytes(self, receipt_data=None):
-        """Build one complete ESC/POS receipt containing BOTH logo and text."""
-        receipt = receipt_data or self.last_receipt
-        if not receipt:
-            return b""
-
-        (
-            invoice, subtotal, discount, tax, total,
-            method, paid, change, cart
-        ) = receipt
-
-        paper = self.db.setting("paper") or "58mm"
-        width = 32 if paper == "58mm" else 48
-        logo_width = 256 if paper == "58mm" else 384
-
-        store = printer_text(self.db.setting("store_name") or APP_NAME)
-        address = printer_text(self.db.setting("store_address") or "")
-        footer = printer_text(self.db.setting("receipt_footer") or "Terima kasih")
-        cashier = printer_text(self.db.setting("cashier_name") or "Kasir")
-        method = printer_text(method)
-        invoice = printer_text(invoice)
-
-        # ESC/POS initialization + explicit code page 0 (CP437/ASCII-safe).
-        out = bytearray(b"\x1b\x40\x1b\x74\x00")
-
-        # 1. Logo - use the proven raster implementation.
-        logo_path = self.resolve_image(self.db.setting("receipt_logo"))
-        logo = self._receipt_logo_raster(logo_path, logo_width)
-        if logo:
-            out += logo
-
-        # 2. Header.
-        out += b"\x1b\x61\x01"       # center
-        out += b"\x1b\x45\x01"       # bold on
-        out += (store.center(width) + "\n").encode("ascii", "replace")
-        out += b"\x1b\x45\x00"       # bold off
-
-        if address.strip():
-            out += (address.center(width) + "\n").encode("ascii", "replace")
-
-        out += ("-" * width + "\n").encode("ascii")
-
-        # 3. Transaction information.
-        out += b"\x1b\x61\x00"       # left
-        out += (self._receipt_columns(
-            "No", invoice, width
-        ) + "\n").encode("ascii", "replace")
-        out += (self._receipt_columns(
-            "Tanggal", datetime.now().strftime("%d/%m/%Y %H:%M"), width
-        ) + "\n").encode("ascii", "replace")
-        out += (self._receipt_columns(
-            "Kasir", cashier, width
-        ) + "\n").encode("ascii", "replace")
-        out += ("-" * width + "\n").encode("ascii")
-
-        # 4. Items.
-        for item in cart:
-            name = printer_text(item.get("name", "Produk"))
-            qty = safe_float(item.get("qty", 1))
-            price = safe_float(item.get("price", 0))
-            line_total = qty * price
-
-            for line in self._receipt_item_line(
-                name, qty, price, line_total, width
-            ):
-                out += (line + "\n").encode("ascii", "replace")
-
-        out += ("-" * width + "\n").encode("ascii")
-
-        # 5. Totals.
-        totals = [
-            ("Subtotal", money(subtotal)),
-            ("Diskon", "-" + money(discount) if safe_float(discount) > 0 else money(discount)),
-            ("Pajak", money(tax) if safe_float(tax) > 0 else money(tax)),
-            ("TOTAL", money(total)),
-            ("Metode", method),
-        ]
-
-        if method.lower() == "tunai":
-            totals.extend([
-                ("Bayar", money(paid)),
-                ("Kembali", money(change)),
-            ])
-
-        for label, value in totals:
-            line = self._receipt_columns(label, value, width)
-            if label == "TOTAL":
-                out += b"\x1b\x45\x01"
-                out += (line + "\n").encode("ascii", "replace")
-                out += b"\x1b\x45\x00"
-            else:
-                out += (line + "\n").encode("ascii", "replace")
-
-        out += ("-" * width + "\n").encode("ascii")
-
-        # 6. Footer.
-        out += b"\x1b\x61\x01"
-        out += (footer.center(width) + "\n\n\n").encode("ascii", "replace")
-
-        # Standard full/partial cut command commonly supported by thermal printers.
-        out += b"\x1d\x56\x00"
-
-        return bytes(out)
-
-    # Backward-compatible alias for code from main (2).
-    def generate_receipt_bytes(self, receipt_data=None):
-        return self.build_receipt_bytes(receipt_data)
-
-    def _write_printer_data(self, output, payload):
-        """Send Bluetooth payload in small chunks to prevent thermal-printer overflow."""
-        if not payload:
-            return
-
-        try:
-            from time import sleep
-            chunk_size = 512
-            for pos in range(0, len(payload), chunk_size):
-                chunk = payload[pos:pos + chunk_size]
-                output.write(chunk)
-                try:
-                    output.flush()
-                except Exception:
-                    pass
-                sleep(0.008)
-        except Exception:
-            output.write(payload)
-            try:
-                output.flush()
-            except Exception:
-                pass
-
-    def _send_receipt_bluetooth(self, address, receipt_data=None, silent=False):
-        """Single Bluetooth path used by automatic print, reprint, and test print."""
-        if not address:
-            raise ValueError("Printer Bluetooth belum dipilih.")
-        if not receipt_data and not self.last_receipt:
-            raise ValueError("Belum ada data struk yang dapat dicetak.")
-
-        payload = self.build_receipt_bytes(receipt_data)
-        if not payload:
-            raise ValueError("Data struk kosong.")
-
-        if platform != "android":
-            raise RuntimeError("Pencetakan Bluetooth struk saat ini hanya didukung di Android.")
-
-        from jnius import autoclass
-        BluetoothAdapter = autoclass("android.bluetooth.BluetoothAdapter")
-        UUID = autoclass("java.util.UUID")
-
-        adapter = BluetoothAdapter.getDefaultAdapter()
-        if adapter is None:
-            raise RuntimeError("Bluetooth tidak tersedia.")
-        if not adapter.isEnabled():
-            raise RuntimeError("Bluetooth HP tidak aktif. Aktifkan Bluetooth terlebih dahulu.")
-
-        device = adapter.getRemoteDevice(str(address).strip())
-        spp_uuid = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
-
-        socket = None
-        try:
-            try:
-                adapter.cancelDiscovery()
-            except Exception:
-                pass
-
-            socket = device.createRfcommSocketToServiceRecord(spp_uuid)
-            socket.connect()
-            output = socket.getOutputStream()
-            self._write_printer_data(output, payload)
-
-        finally:
-            if socket is not None:
-                try:
-                    socket.close()
-                except Exception:
-                    pass
-
-        if not silent:
-            self.notify("Struk berhasil dikirim ke printer.")
-
-    def print_bluetooth(self, address=None, silent=False):
-        """Compatibility method used by the older print flow."""
-        try:
-            address = address or self.db.setting("printer_address")
-            self._send_receipt_bluetooth(address, self.last_receipt, silent=silent)
-        except Exception as error:
-            self.log_error("BLUETOOTH_PRINT", error)
-            self.notify("Gagal mencetak:\n" + str(error))
-
-    def print_saved_receipt(self, receipt_data=None):
-        """Print current/supplied receipt using the saved Bluetooth printer."""
-        try:
-            target = receipt_data or self.last_receipt
-            if not target:
-                self.notify("Tidak ada data transaksi yang dapat dicetak.")
-                return
-
-            address = self.db.setting("printer_address")
-            if not address:
-                self.notify("Printer belum dipilih. Buka Pengaturan -> Pilih Printer Bluetooth.")
-                return
-
-            self._send_receipt_bluetooth(address, target, silent=False)
-
-        except Exception as error:
-            self.log_error("PRINT_RECEIPT", error)
-            self.notify("Gagal mencetak struk:\n" + str(error))
-
-    def auto_print_saved_receipt(self):
-        """Automatically print after a successful transaction."""
-        address = self.db.setting("printer_address")
-        if not address:
-            return
-        try:
-            self._send_receipt_bluetooth(address, self.last_receipt, silent=True)
-        except Exception as error:
-            self.log_error("AUTO_PRINT_RECEIPT", error)
-            self.notify("Struk tersimpan, tetapi gagal dicetak otomatis:\n" + str(error))
-
-    def test_saved_printer(self):
-        """Full test receipt: logo + text + item lines."""
-        address = self.db.setting("printer_address")
-        if not address:
-            self.notify("Printer belum dipilih. Pilih printer Bluetooth terlebih dahulu.")
-            return
-
-        dummy_items = [
-            {"name": "Item Uji Coba 1", "qty": 1, "price": 10000},
-            {"name": "Item Uji Coba 2", "qty": 2, "price": 5000},
-        ]
-        test_data = (
-            "TEST-PRINT", 20000, 0, 0, 20000,
-            "Tunai", 20000, 0, dummy_items
-        )
-
-        try:
-            self._send_receipt_bluetooth(address, test_data, silent=False)
-            self.notify("Test Print Berhasil!")
-        except Exception as error:
-            self.log_error("TEST_PRINTER", error)
-            self.notify("Test Print Gagal:\n" + str(error))
-
-    def bluetooth_printer_dialog(self):
-        """Dialog pemilih perangkat Bluetooth yang sudah dipairing."""
-        if platform != "android":
-            self.notify("Pencarian Bluetooth otomatis tersedia pada perangkat Android.")
-            return
-
-        try:
-            from jnius import autoclass
-            BluetoothAdapter = autoclass("android.bluetooth.BluetoothAdapter")
-            adapter = BluetoothAdapter.getDefaultAdapter()
-
-            if not adapter or not adapter.isEnabled():
-                self.notify("Aktifkan Bluetooth Android Anda terlebih dahulu.")
-                return
-
-            paired_devices = adapter.getBondedDevices().toArray()
-            content = BoxLayout(orientation="vertical", spacing=dp(8), padding=dp(10))
-
-            scroll = ScrollView(do_scroll_x=False, size_hint_y=1)
-            list_box = GridLayout(cols=1, spacing=dp(6), size_hint_y=None)
-            list_box.bind(minimum_height=list_box.setter("height"))
-            scroll.add_widget(list_box)
-            content.add_widget(scroll)
-
-            popup = style_popup(Popup(
-                title="Pilih Printer Bluetooth",
-                content=content,
-                size_hint=(None, None),
-                size=(min(dp(440), Window.width * 0.9), min(dp(480), Window.height * 0.8))
-            ))
-
-            if not paired_devices:
-                list_box.add_widget(text_label(
-                    "Tidak ada perangkat Bluetooth tersambung.",
-                    halign="center"
-                ))
-            else:
-                for dev in paired_devices:
-                    dev_name = safe_text(dev.getName())
-                    dev_mac = safe_text(dev.getAddress())
-                    btn = make_button(
-                        f"{dev_name}\n({dev_mac})",
-                        primary=False,
-                        height=52
-                    )
-                    btn.bind(
-                        on_release=lambda *_, mac=dev_mac, name=dev_name:
-                        self._select_printer(mac, name, popup)
-                    )
-                    list_box.add_widget(btn)
-
-            close_btn = make_button("Tutup", primary=False, height=44)
-            close_btn.bind(on_release=popup.dismiss)
-            content.add_widget(close_btn)
-            popup.open()
-
-        except Exception as error:
-            self.log_error("BT_DIALOG", error)
-            self.notify("Gagal membuka daftar Bluetooth.")
-
-    def _select_printer(self, mac_address, dev_name, popup):
-        try:
-            self.db.set_setting("printer_address", mac_address)
-            try:
-                popup.dismiss()
-            except Exception:
-                pass
-
-            try:
-                settings_screen = self.root.ids.sm.get_screen("settings")
-                settings_screen.ids.printer_status.text = f"Printer: {mac_address}"
-            except Exception:
-                pass
-
-            self.notify(f"Printer tersimpan:\n{dev_name} ({mac_address})")
-
-        except Exception as error:
-            self.log_error("SELECT_PRINTER", error)
-            self.notify("Printer gagal disimpan.")
-
     def print_or_offer(self, invoice):
+
         content = BoxLayout(
             orientation="vertical",
             spacing=dp(8),
@@ -4925,7 +4532,8 @@ class UniversalPOS(App):
 
         content.add_widget(
             text_label(
-                f"Transaksi {invoice} berhasil.\nCetak struk sekarang?",
+                f"Transaksi {invoice} berhasil.\n"
+                "Cetak struk sekarang?",
                 size=15,
                 halign="center"
             )
@@ -4937,32 +4545,573 @@ class UniversalPOS(App):
             spacing=dp(7)
         )
 
-        bluetooth = make_button("Cetak Struk", primary=True)
-        close = make_button("Tutup")
+        bluetooth = make_button(
+            "Bluetooth",
+            primary=True
+        )
+
+        no_print = make_button(
+            "Tidak"
+        )
+
         row.add_widget(bluetooth)
-        row.add_widget(close)
+        row.add_widget(no_print)
+
         content.add_widget(row)
 
         popup = style_popup(Popup(
-            title="Selesai",
+            title="Struk",
             content=content,
-            size_hint=(None, None),
-            size=(dp(360), dp(190))
+            size_hint=(.88, None),
+            size=(dp(400), dp(170))
         ))
 
         bluetooth.bind(
             on_release=lambda *_: (
                 popup.dismiss(),
-                self.print_saved_receipt()
+                self.bluetooth_printer_dialog()
             )
         )
-        close.bind(on_release=popup.dismiss)
+
+        no_print.bind(
+            on_release=popup.dismiss
+        )
+
         popup.open()
+
+    # --------------------------------------------------------
+    # BLUETOOTH DEVICES
+    # --------------------------------------------------------
+
+    def auto_print_saved_receipt(self):
+        """Cetak otomatis memakai printer yang sudah dipilih di Pengaturan."""
+        address = self.db.setting("printer_address")
+        if not address:
+            self.notify("Transaksi tersimpan. Printer Bluetooth belum dipilih di Pengaturan.")
+            return
+        self.print_bluetooth(address, silent=False)
+
+    def print_saved_receipt(self):
+        """Cetak ulang transaksi terakhir dengan printer tersimpan."""
+        address = self.db.setting("printer_address")
+        if not address:
+            self.notify("Pilih printer Bluetooth sekali di Pengaturan terlebih dahulu.")
+            return
+        self.print_bluetooth(address, silent=False)
+
+    def bluetooth_printer_dialog(self):
+
+        devices = self.get_bonded_devices()
+
+        if not devices:
+
+            self.notify(
+                "Tidak ada printer Bluetooth "
+                "yang sudah dipairing."
+            )
+
+            return
+
+        content = BoxLayout(
+            orientation="vertical",
+            spacing=dp(6),
+            padding=dp(8)
+        )
+
+        popup = style_popup(Popup(
+            title="Pilih Printer Bluetooth",
+            content=content,
+            size_hint=(.92, None),
+            size=(dp(430), min(dp(460), max(dp(300), Window.height * .72)))
+        ))
+
+        for name, address in devices:
+
+            row = Card(
+                orientation="horizontal",
+                size_hint_y=None,
+                height=dp(66),
+                padding=[dp(10), dp(7)],
+                spacing=dp(8)
+            )
+
+            info = BoxLayout(
+                orientation="vertical",
+                spacing=dp(1)
+            )
+            name_label = Label(
+                text=name or "Printer Bluetooth",
+                color=TEXT,
+                bold=True,
+                font_size="13sp",
+                halign="left",
+                valign="middle",
+                shorten=True,
+                shorten_from="right"
+            )
+            name_label.bind(size=lambda w, v: setattr(w, "text_size", v))
+            addr_label = Label(
+                text=address,
+                color=MUTED,
+                font_size="10sp",
+                halign="left",
+                valign="middle",
+                shorten=True,
+                shorten_from="right"
+            )
+            addr_label.bind(size=lambda w, v: setattr(w, "text_size", v))
+            info.add_widget(name_label)
+            info.add_widget(addr_label)
+
+            connect = make_button(
+                "PILIH",
+                primary=True,
+                height=40
+            )
+            connect.size_hint_x = None
+            connect.width = dp(72)
+            connect.bind(
+                on_release=lambda *_,
+                addr=address: (
+                    popup.dismiss(),
+                    self.select_printer(addr)
+                )
+            )
+
+            row.add_widget(info)
+            row.add_widget(connect)
+            content.add_widget(row)
+
+        fit_popup(
+            popup, content,
+            min_width=dp(330),
+            max_width=dp(500),
+            min_height=dp(210),
+            max_height_ratio=0.82,
+            extra_height=dp(70)
+        )
+
+        popup.open()
+
+    def select_printer(self, address):
+        try:
+            self.db.set_setting("printer_address", address)
+            try:
+                settings = self.root.ids.sm.get_screen("settings")
+                settings.ids.printer_status.text = "Printer: " + address
+            except Exception:
+                pass
+            self.notify("Printer Bluetooth dipilih:\n" + address)
+        except Exception as error:
+            self.log_error("SELECT_PRINTER", error); self.notify("Printer gagal disimpan.")
+
+    def test_saved_printer(self):
+        address = self.db.setting("printer_address")
+        if not address:
+            self.notify("Pilih printer Bluetooth terlebih dahulu.")
+            return
+        self.print_raw_bluetooth(address, b"\x1b@KasirQU - TEST PRINT\nPrinter terhubung.\n\n\n")
+
+    def print_raw_bluetooth(self, address, payload):
+        if platform != "android":
+            self.notify("Test printer Bluetooth hanya tersedia pada Android.")
+            return
+        socket = None
+        try:
+            from jnius import autoclass
+            BluetoothAdapter = autoclass("android.bluetooth.BluetoothAdapter")
+            UUID = autoclass("java.util.UUID")
+            adapter = BluetoothAdapter.getDefaultAdapter()
+            if adapter is None: raise RuntimeError("Bluetooth tidak tersedia.")
+            device = adapter.getRemoteDevice(address)
+            uuid = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
+            socket = device.createRfcommSocketToServiceRecord(uuid)
+            try: adapter.cancelDiscovery()
+            except Exception: pass
+            socket.connect(); output = socket.getOutputStream(); output.write(payload); output.flush()
+            self.notify("Test print berhasil dikirim.")
+        except Exception as error:
+            self.log_error("RAW_BLUETOOTH_PRINT", error); self.notify("Gagal terhubung ke printer:\n" + str(error))
+        finally:
+            if socket is not None:
+                try: socket.close()
+                except Exception: pass
+
+    def get_bonded_devices(self):
+
+        if platform != "android":
+            return []
+
+        try:
+
+            from jnius import autoclass
+
+            BluetoothAdapter = autoclass(
+                "android.bluetooth.BluetoothAdapter"
+            )
+
+            adapter = (
+                BluetoothAdapter
+                .getDefaultAdapter()
+            )
+
+            if adapter is None:
+                return []
+
+            devices = (
+                adapter
+                .getBondedDevices()
+                .toArray()
+            )
+
+            result = []
+
+            for device in devices:
+
+                try:
+
+                    name = str(
+                        device.getName()
+                        or
+                        "Bluetooth Device"
+                    )
+
+                    address = str(
+                        device.getAddress()
+                    )
+
+                    result.append(
+                        (
+                            name,
+                            address
+                        )
+                    )
+
+                except Exception:
+                    pass
+
+            return result
+
+        except Exception as error:
+
+            self.log_error(
+                "BLUETOOTH_DEVICES",
+                error
+            )
+
+            return []
+
+    # --------------------------------------------------------
+    # BLUETOOTH PRINT
+    # --------------------------------------------------------
+
+    def print_bluetooth(self, address=None, silent=False):
+
+        if not address:
+            address = self.db.setting("printer_address")
+        if not address:
+            self.notify("Printer Bluetooth belum dipilih di Pengaturan.")
+            return
+
+        if not self.last_receipt:
+            self.notify("Belum ada struk yang bisa dicetak. Gunakan TEST PRINT di Pengaturan untuk mengetes koneksi.")
+            return
+
+        socket = None
+
+        try:
+
+            from jnius import autoclass
+
+            BluetoothAdapter = autoclass(
+                "android.bluetooth.BluetoothAdapter"
+            )
+
+            UUID = autoclass(
+                "java.util.UUID"
+            )
+
+            adapter = (
+                BluetoothAdapter
+                .getDefaultAdapter()
+            )
+
+            if adapter is None:
+
+                raise RuntimeError(
+                    "Bluetooth tidak tersedia."
+                )
+
+            device = (
+                adapter.getRemoteDevice(
+                    address
+                )
+            )
+
+            uuid = UUID.fromString(
+                "00001101-0000-1000-8000-00805F9B34FB"
+            )
+
+            socket = (
+                device
+                .createRfcommSocketToServiceRecord(
+                    uuid
+                )
+            )
+
+            try:
+                adapter.cancelDiscovery()
+            except Exception:
+                pass
+
+            socket.connect()
+
+            output = (
+                socket.getOutputStream()
+            )
+
+            payload = self.build_receipt_bytes()
+
+            # Kirim bertahap supaya buffer printer Bluetooth tidak overflow.
+            chunk_size = 512
+            for start in range(0, len(payload), chunk_size):
+                output.write(payload[start:start + chunk_size])
+                try:
+                    import time
+                    time.sleep(0.015)
+                except Exception:
+                    pass
+
+            output.flush()
+
+            try:
+                import time
+                time.sleep(0.20)
+            except Exception:
+                pass
+
+            if not silent:
+                self.notify("Struk berhasil dikirim.")
+
+        except Exception as error:
+
+            self.log_error(
+                "BLUETOOTH_PRINT",
+                error
+            )
+
+            self.notify(
+                "Gagal mencetak:\n"
+                +
+                str(error)
+            )
+
+        finally:
+
+            if socket is not None:
+
+                try:
+                    socket.close()
+                except Exception:
+                    pass
+
+    # ========================================================
+    # RECEIPT
+    # ========================================================
+
+    def _receipt_logo_raster(self, path, max_width):
+        """Logo ESC/POS ESC * mode 0 (8-dot single-density).
+        Mode ini sengaja dipakai karena lebih kompatibel dengan printer
+        thermal Bluetooth murah dan memakai payload jauh lebih kecil.
+        """
+        if not path or not os.path.isfile(path):
+            return b""
+
+        try:
+            image = CoreImage(path)
+            texture = image.texture
+            if texture is None:
+                return b""
+
+            w, h = texture.size
+            pixels = texture.pixels
+            if not pixels or w <= 0 or h <= 0:
+                return b""
+
+            scale = min(1.0, float(max_width) / float(w))
+            nw = max(8, int(w * scale))
+            nw = min(nw, 384)
+            nh = max(1, int(h * scale))
+
+            out = bytearray()
+
+            # ESC * mode 0: 8 vertical dots, one byte per column.
+            for band_top in range(0, nh, 8):
+                band_h = min(8, nh - band_top)
+
+                out += bytes([
+                    0x1B, 0x2A, 0x00,
+                    nw & 0xFF, (nw >> 8) & 0xFF
+                ])
+
+                for x in range(nw):
+                    sx = min(w - 1, int(x / scale))
+                    byte = 0
+
+                    for bit in range(8):
+                        y = band_top + bit
+                        if y >= nh:
+                            continue
+
+                        sy = min(h - 1, int(y / scale))
+                        # Texture Kivy bottom-left -> baris cetak top-down.
+                        sy = h - 1 - sy
+
+                        idx = (sy * w + sx) * 4
+                        if idx + 3 >= len(pixels):
+                            continue
+
+                        r = pixels[idx]
+                        g = pixels[idx + 1]
+                        b = pixels[idx + 2]
+                        a = pixels[idx + 3]
+
+                        if a < 60:
+                            black = False
+                        else:
+                            lum = (0.299 * r) + (0.587 * g) + (0.114 * b)
+                            black = lum < 205
+
+                        if black:
+                            byte |= (0x80 >> bit)
+
+                    out.append(byte)
+
+                # LF mengakhiri satu band dan memajukan kertas 8 dot.
+                out += b"\n"
+
+            return bytes(out)
+
+        except Exception as error:
+            self.log_error("RECEIPT_LOGO_RASTER", error)
+            return b""
+
+
+    def _receipt_columns(self, left, right, width):
+        left = printer_text(left).replace("\n", " ")
+        right = printer_text(right).replace("\n", " ")
+        if len(right) >= width:
+            return right[:width]
+        max_left = max(1, width - len(right) - 1)
+        if len(left) > max_left:
+            left = left[:max_left - 1] + "..."
+        return left + (" " * (width - len(left) - len(right))) + right
+
+    def _receipt_item_line(self, name, qty, price, line_total, width):
+        # Nama di kiri, total di kanan; detail qty x harga di bawahnya.
+        return [
+            printer_text(name)[:width],
+            self._receipt_columns(
+                f"{qty:g} x {money(price)}",
+                money(line_total),
+                width
+            )
+        ]
+
+    def build_receipt_bytes(self):
+        (
+            invoice, subtotal, discount, tax, total,
+            method, paid, change, cart
+        ) = self.last_receipt
+
+        paper = self.db.setting("paper") or "58mm"
+        width = 32 if paper == "58mm" else 48
+        logo_width = 384 if paper == "58mm" else 384
+
+        store = self.db.setting("store_name") or APP_NAME
+        address = self.db.setting("store_address") or ""
+        footer = self.db.setting("receipt_footer") or "Terima kasih"
+        cashier = self.db.setting("cashier_name") or "Kasir"
+        logo_path = self.resolve_image(self.db.setting("receipt_logo"))
+
+        # Reset printer. Semua teks di bawah sudah dinormalisasi ke ASCII,
+        # jadi tidak bergantung pada code-page UTF-8 printer.
+        out = bytearray(b"\x1b\x40")
+
+        # Logo: center, ESC * mode 0, lalu kembali ke kiri.
+        logo = self._receipt_logo_raster(logo_path, logo_width)
+        if logo:
+            out += b"\x1b\x61\x01" + logo + b"\x1b\x61\x00"
+
+        # Header tetap rapi/center.
+        out += b"\x1b\x45\x01"
+        header = [store.center(width)]
+        if address.strip():
+            header.append(address.center(width))
+        out += printer_bytes("\n".join(header) + "\n")
+        out += b"\x1b\x45\x00"
+        out += ("-" * width + "\n").encode("ascii")
+
+        out += printer_bytes(invoice + "\n")
+        out += printer_bytes(self._receipt_columns("Tanggal", datetime.now().strftime("%d/%m/%Y %H:%M"), width) + "\n")
+        out += printer_bytes(self._receipt_columns("Kasir", cashier, width) + "\n")
+        out += ("-" * width + "\n").encode("ascii")
+
+        for item in cart:
+            for line in self._receipt_item_line(
+                item["name"], item["qty"], item["price"],
+                item["qty"] * item["price"], width
+            ):
+                out += printer_bytes(line + "\n")
+
+        out += ("-" * width + "\n").encode("ascii")
+        totals = [
+            ("Subtotal", money(subtotal)),
+            ("Diskon", money(discount)),
+            ("Pajak", money(tax)),
+            ("TOTAL", money(total)),
+            ("Bayar", money(paid)),
+            ("Kembali", money(change)),
+            ("Metode", method),
+        ]
+        for label, value in totals:
+            line = self._receipt_columns(label, value, width)
+            if label == "TOTAL":
+                out += b"\x1b\x45\x01"
+                out += printer_bytes(line + "\n")
+                out += b"\x1b\x45\x00"
+            else:
+                out += printer_bytes(line + "\n")
+
+        out += ("-" * width + "\n").encode("ascii")
+        out += printer_bytes(footer.center(width)) + b"\n\n\n"
+        out += b"\x1d\x56\x00"
+        return bytes(out)
 
 
 # ============================================================
-# RUN APPLIKASI
+# ENTRY POINT
 # ============================================================
 
 if __name__ == "__main__":
-    UniversalPOS().run()
+
+    try:
+
+        UniversalPOS().run()
+
+    except Exception as error:
+
+        try:
+
+            app = UniversalPOS()
+
+            app.log_error(
+                "FATAL_ENTRY_POINT",
+                error
+            )
+
+        except Exception:
+
+            pass
+
+        raise
