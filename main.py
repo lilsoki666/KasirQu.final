@@ -4940,15 +4940,24 @@ class UniversalPOS(App):
             if not pixels or w <= 0 or h <= 0:
                 return b""
 
-            # Logo receipt sengaja dibuat kecil.
-            # 58mm: sekitar 120 dot (~30% lebar kertas 384 dot).
-            # 80mm: sekitar 160 dot.
+            # Logo receipt dibuat sangat kecil agar tidak mengambil
+            # area utama struk.
+            # 58mm: maksimum 64 dot.
+            # 80mm: maksimum 96 dot.
             paper = self.db.setting("paper") or "58mm"
-            target_width = 120 if paper == "58mm" else 160
+
+            target_width = 64 if paper == "58mm" else 96
+            target_height = 48 if paper == "58mm" else 64
+
             if max_width:
                 target_width = min(target_width, int(max_width))
 
-            scale = min(1.0, float(target_width) / float(w))
+            scale = min(
+                1.0,
+                float(target_width) / float(w),
+                float(target_height) / float(h)
+            )
+
             nw = max(1, int(w * scale))
             nh = max(1, int(h * scale))
 
