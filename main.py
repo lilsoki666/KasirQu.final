@@ -4920,9 +4920,11 @@ class UniversalPOS(App):
     # ========================================================
 
     def _receipt_logo_raster(self, path, max_width):
-        """Logo ESC/POS ESC * mode 0 (8-dot single-density).
-        Mode ini sengaja dipakai karena lebih kompatibel dengan printer
-        thermal Bluetooth murah dan memakai payload jauh lebih kecil.
+        """Raster logo thermal yang kecil dan orientasinya normal.
+
+        Printer menerima ESC * mode 0 (8-dot). Kivy Texture.pixels
+        ber-origin bottom-left, sehingga source image dibaca dari baris
+        paling atas ke bawah sebelum dikirim ke printer.
         """
         if not path or not os.path.isfile(path):
             return b""
@@ -4938,17 +4940,24 @@ class UniversalPOS(App):
             if not pixels or w <= 0 or h <= 0:
                 return b""
 
-            scale = min(1.0, float(max_width) / float(w))
-            nw = max(8, int(w * scale))
-            nw = min(nw, 384)
+            # Logo receipt sengaja dibuat kecil.
+            # 58mm: sekitar 120 dot (~30% lebar kertas 384 dot).
+            # 80mm: sekitar 160 dot.
+            paper = self.db.setting("paper") or "58mm"
+            target_width = 120 if paper == "58mm" else 160
+            if max_width:
+                target_width = min(target_width, int(max_width))
+
+            scale = min(1.0, float(target_width) / float(w))
+            nw = max(1, int(w * scale))
             nh = max(1, int(h * scale))
 
             out = bytearray()
 
-            # ESC * mode 0: 8 vertical dots, one byte per column.
+            # ESC * mode 0 = 8 vertical dots.
+            # Dengan bit 7 sebagai pixel paling atas, setiap band dibaca
+            # dari image top -> bottom.
             for band_top in range(0, nh, 8):
-                band_h = min(8, nh - band_top)
-
                 out += bytes([
                     0x1B, 0x2A, 0x00,
                     nw & 0xFF, (nw >> 8) & 0xFF
@@ -4959,13 +4968,13 @@ class UniversalPOS(App):
                     byte = 0
 
                     for bit in range(8):
-                        y = band_top + bit
-                        if y >= nh:
+                        y_top = band_top + bit
+                        if y_top >= nh:
                             continue
 
-                        sy = min(h - 1, int(y / scale))
-                        # Texture Kivy bottom-left -> baris cetak top-down.
-                        sy = h - 1 - sy
+                        # Kivy pixels: row 0 = bottom.
+                        # y_top = 0 harus mengambil row paling atas.
+                        sy = h - 1 - min(h - 1, int(y_top / scale))
 
                         idx = (sy * w + sx) * 4
                         if idx + 3 >= len(pixels):
@@ -4987,7 +4996,6 @@ class UniversalPOS(App):
 
                     out.append(byte)
 
-                # LF mengakhiri satu band dan memajukan kertas 8 dot.
                 out += b"\n"
 
             return bytes(out)
@@ -5026,7 +5034,7 @@ class UniversalPOS(App):
 
         paper = self.db.setting("paper") or "58mm"
         width = 32 if paper == "58mm" else 48
-        logo_width = 384 if paper == "58mm" else 384
+        logo_width = 120 if paper == "58mm" else 160
 
         store = self.db.setting("store_name") or APP_NAME
         address = self.db.setting("store_address") or ""
