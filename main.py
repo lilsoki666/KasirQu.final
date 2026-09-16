@@ -12,13 +12,12 @@ from kivy.app import App
 from kivy.lang import Builder
 from kivy.metrics import dp
 from kivy.core.window import Window
-from kivy.core.image import Image as CoreImage
-from kivy.properties import StringProperty, NumericProperty
+from kivy.properties import StringProperty, NumericProperty, BooleanProperty
 from kivy.uix.screenmanager import Screen, ScreenManager, SlideTransition
 from kivy.uix.popup import Popup
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.gridlayout import GridLayout
-from kivy.uix.button import Button, ButtonBehavior
+from kivy.uix.button import Button
 from kivy.uix.label import Label
 from kivy.uix.image import Image
 from kivy.uix.textinput import TextInput
@@ -26,7 +25,6 @@ from kivy.uix.spinner import Spinner
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.widget import Widget
 from kivy.uix.anchorlayout import AnchorLayout
-from kivy.uix.filechooser import FileChooserListView
 from kivy.graphics import Color, RoundedRectangle
 from kivy.clock import Clock
 from kivy.utils import platform
@@ -93,13 +91,10 @@ def safe_text(value):
 
 
 def printer_text(value):
-    """Teks khusus printer: hanya ASCII agar byte UTF-8 tidak menjadi simbol acak."""
+    """Normalisasi teks struk ke ASCII agar printer ESC/POS tidak mencetak mojibake."""
     try:
         s = safe_text(value)
-        replacements = {
-            "Ã—": "x", "â€¢": "-", "Â·": "-", "â€“": "-", "â€”": "-",
-            "â€¦": "...", "â€œ": '"', "â€": '"', "â€˜": "'", "â€™": "'",
-        }
+        replacements = {"×":"x", "•":"-", "·":"-", "–":"-", "—":"-", "…":"...", "“":'"', "”":'"', "‘":"'", "’":"'"}
         for src, dst in replacements.items():
             s = s.replace(src, dst)
         s = unicodedata.normalize("NFKD", s)
@@ -142,6 +137,30 @@ class Card(BoxLayout):
         self._rect.size = self.size
 
 
+class PillLabel(Label):
+    """Label kecil berbentuk badge untuk status/stok."""
+    bg_color = StringProperty("success")
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.size_hint_y = None
+        self.height = dp(28)
+        self.padding = [dp(8), 0]
+        with self.canvas.before:
+            self._bg_color = Color(*SUCCESS)
+            self._bg_rect = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(10)])
+        self.bind(pos=self._update_bg, size=self._update_bg)
+        self.bind(bg_color=self._update_color)
+        self._update_color()
+
+    def _update_bg(self, *_):
+        self._bg_rect.pos = self.pos
+        self._bg_rect.size = self.size
+
+    def _update_color(self, *_):
+        self._bg_color.rgba = DANGER if self.bg_color == "danger" else SUCCESS
+
+
 # ============================================================
 # MODERN BUTTON
 # ============================================================
@@ -177,32 +196,37 @@ class ModernButton(Button):
 # ICON NAVIGATION
 # ============================================================
 
-class IconNavButton(ButtonBehavior, BoxLayout):
+class IconNavButton(BoxLayout):
+    """Toolbar item yang aman untuk Kivy/Android.
+
+    Tidak memakai ButtonBehavior karena kombinasi ButtonBehavior + BoxLayout
+    dapat memicu error konstruktor pada beberapa versi Kivy:
+    ButtonBehavior._init_() got multiple values for keyword argument.
+    """
 
     nav_name = StringProperty("")
     label_text = StringProperty("")
     icon_path = StringProperty("")
+    is_active = BooleanProperty(False)
 
     def __init__(self, **kwargs):
-        # Do not require constructor positional arguments. Kivy's KV parser
-        # creates this widget first and applies `name`/`icon` as properties.
-        super().__init__(orientation="vertical", spacing=dp(2), **kwargs)
-
+        super().__init__(orientation="vertical", **kwargs)
+        self.spacing = dp(2)
         self.size_hint_y = None
         self.height = dp(78)
-        self.padding = [dp(3), dp(3), dp(3), dp(3)]
+        self.padding = [dp(4), dp(4), dp(4), dp(4)]
         self.size_hint_x = 1
+        self._touch_start = None
 
         self.icon = Image(
-            source=self.icon_path,
+            source="",
             size_hint=(1, None),
             height=dp(46),
             allow_stretch=True,
             keep_ratio=True
         )
-
         self.label = Label(
-            text=self.label_text,
+            text="",
             font_size="10sp",
             bold=True,
             color=MUTED,
@@ -221,32 +245,72 @@ class IconNavButton(ButtonBehavior, BoxLayout):
             self._nav_bg = RoundedRectangle(
                 pos=self.pos, size=self.size, radius=[dp(10)]
             )
+            Color(0.12, 0.32, 0.78, 0)
+            from kivy.graphics import Line
+            self._nav_border = Line(
+                rounded_rectangle=(self.x, self.y, self.width, self.height, dp(10)),
+                width=dp(2)
+            )
 
         self.bind(pos=self._update_bg, size=self._update_bg)
         self.bind(label_text=self._sync_label_text, icon_path=self._sync_icon)
-
+        self.bind(is_active=self._sync_active)
         Clock.schedule_once(self._sync_widgets, 0)
 
     def _sync_label_text(self, *_):
-        if hasattr(self, "label"):
-            self.label.text = self.label_text
+        self.label.text = self.label_text
 
     def _sync_icon(self, *_):
-        if hasattr(self, "icon"):
-            self.icon.source = self.icon_path
+        self.icon.source = self.icon_path or ""
+        try:
             self.icon.reload()
+        except Exception:
+            pass
 
     def _sync_widgets(self, *_):
         self._sync_label_text()
         self._sync_icon()
         self._update_bg()
+        self._sync_active()
 
     def _update_bg(self, *_):
         self._nav_bg.pos = self.pos
         self._nav_bg.size = self.size
+        self._nav_border.rounded_rectangle = (
+            self.x, self.y, self.width, self.height, dp(10)
+        )
 
-    def on_release(self):
-        App.get_running_app().navigate(self.nav_name)
+    def _sync_active(self, *_):
+        self._nav_border.rounded_rectangle = (
+            self.x, self.y, self.width, self.height, dp(10)
+        )
+        self._nav_border.rgba = (
+            0.12, 0.32, 0.78, 1 if self.is_active else 0
+        )
+        self.label.color = PRIMARY if self.is_active else MUTED
+
+    def on_touch_down(self, touch):
+        if self.collide_point(*touch.pos):
+            self._touch_start = touch.pos
+            return True
+        return super().on_touch_down(touch)
+
+    def on_touch_up(self, touch):
+        if self._touch_start is not None:
+            start = self._touch_start
+            self._touch_start = None
+            dx = touch.x - start[0]
+            dy = touch.y - start[1]
+            if abs(dx) < dp(20) and abs(dy) < dp(20) and self.collide_point(*touch.pos):
+                try:
+                    App.get_running_app().navigate(self.nav_name)
+                except Exception as error:
+                    try:
+                        App.get_running_app().log_error("NAV_TOUCH", error)
+                    except Exception:
+                        pass
+            return True
+        return super().on_touch_up(touch)
 
 
 # ============================================================
@@ -314,6 +378,11 @@ class SwipeManager(ScreenManager):
         )
 
         self.current = names[target]
+        try:
+            app = App.get_running_app()
+            app.refresh_nav_highlight()
+        except Exception:
+            pass
 
 
 # ============================================================
@@ -405,350 +474,338 @@ KV = r'''
 <POSScreen>:
 
     BoxLayout:
-
         orientation: "vertical"
-
-        padding: dp(12)
-
-        spacing: dp(10)
-
-
+        spacing: 0
         canvas.before:
-
             Color:
-
                 rgba: (.95,.97,.99,1)
-
             Rectangle:
-
                 pos: self.pos
-
                 size: self.size
 
-
-        Label:
-
-            text: "KasirQU"
-
-            color: (.07,.09,.13,1)
-
-            font_size: "24sp"
-
-            bold: True
-
+        BoxLayout:
             size_hint_y: None
-
-            height: dp(42)
-
-            halign: "center"
-
-            valign: "middle"
-
-            text_size: self.size
-
+            height: dp(56)
+            padding: [dp(16), 0, dp(10), 0]
+            canvas.before:
+                Color:
+                    rgba: (.10,.31,.76,1)
+                Rectangle:
+                    pos: self.pos
+                    size: self.size
+            Label:
+                text: app.db.setting("store_name") or "KasirQU"
+                color: 1,1,1,1
+                font_size: "18sp"
+                bold: True
+                halign: "left"
+                valign: "middle"
+                text_size: self.size
+            Label:
+                text: "KASIR"
+                color: (1,1,1,.82)
+                font_size: "11sp"
+                bold: True
+                size_hint_x: None
+                width: dp(60)
+                halign: "right"
+                valign: "middle"
+                text_size: self.size
 
         BoxLayout:
-
-            size_hint_y: None
-
-            height: dp(48)
-
-            padding: [dp(24), 0, dp(24), 0]
-
-            BoxLayout:
-
-                spacing: dp(7)
-
-                TextInput:
-
-                    id: search
-
-                    hint_text: "Cari produk / scan barcode..."
-
-                    multiline: False
-
-                    padding: [dp(12), dp(11)]
-
-                    background_normal: ""
-
-                    background_color: (1,1,1,1)
-
-                    foreground_color: (.08,.11,.16,1)
-
-                    cursor_color: (.12,.32,.78,1)
-
-                    on_text: root.refresh_products(self.text)
-                    on_text_validate: root.quick_add_by_code(self.text)
-
-                PrimaryButton:
-                    text: "SCAN"
-                    size_hint_x: None
-                    width: dp(72)
-                    on_release: root.open_scanner()
-
-
-        Label:
-
-            text: "Pilih Produk"
-
-            size_hint_y: None
-
-            height: dp(27)
-
-            color: (.40,.44,.51,1)
-
-            font_size: "14sp"
-
-            bold: True
-
-            halign: "left"
-
-            text_size: self.size
-
-
-        ScrollView:
-
-            do_scroll_x: False
-
-            bar_width: dp(3)
-
-            GridLayout:
-
-                id: products
-
-                cols: 4
-
-
-                spacing: dp(8)
-
-                padding: dp(2)
-
-                size_hint_x: 1
-
-                size_hint_y: None
-
-                height: self.minimum_height
-
-
-        Card:
-
-            orientation: "horizontal"
-
-            size_hint_y: None
-
-            height: dp(70)
-
-            padding: dp(9)
-
+            orientation: "vertical"
+            padding: [dp(12), dp(10), dp(12), dp(8)]
             spacing: dp(8)
 
+            BoxLayout:
+                size_hint_y: None
+                height: dp(42)
+                Label:
+                    text: "Kasir"
+                    color: TEXT
+                    font_size: "22sp"
+                    bold: True
+                    halign: "left"
+                    valign: "middle"
+                    text_size: self.size
+                Label:
+                    text: ""
+
+            BoxLayout:
+                size_hint_y: None
+                height: dp(46)
+                spacing: dp(7)
+                TextInput:
+                    id: search
+                    hint_text: "Cari produk / scan barcode..."
+                    multiline: False
+                    padding: [dp(12), dp(10)]
+                    background_normal: ""
+                    background_color: 1,1,1,1
+                    foreground_color: TEXT
+                    cursor_color: PRIMARY
+                    on_text: root.refresh_products(self.text)
+                    on_text_validate: root.quick_add_by_code(self.text)
+                PrimaryButton:
+                    text: "+"
+                    size_hint_x: None
+                    width: dp(46)
+                    on_release: root.open_cart_popup()
 
             Label:
-
-                id: cart_count
-
-                text: "0 item"
-
-                color: (.08,.11,.16,1)
-
+                text: "Pilih Produk"
+                color: MUTED
+                font_size: "13sp"
                 bold: True
-
-                size_hint_x: .25
-
+                size_hint_y: None
+                height: dp(22)
                 halign: "left"
-
-                valign: "middle"
-
                 text_size: self.size
 
+            ScrollView:
+                do_scroll_x: False
+                bar_width: dp(3)
+                GridLayout:
+                    id: products
+                    cols: 4
+                    spacing: dp(8)
+                    padding: dp(1)
+                    size_hint_y: None
+                    height: self.minimum_height
 
-            Label:
-
-                id: cart_total
-
-                text: "Rp 0"
-
-                color: (.12,.32,.78,1)
-
-                font_size: "18sp"
-
-                bold: True
-
-                size_hint_x: .42
-
-                halign: "right"
-
-                valign: "middle"
-
-                text_size: self.size
-
-
-            PrimaryButton:
-
-                text: "KERANJANG"
-
-                size_hint_x: .33
-
-                on_release:
-
-                    root.open_cart_popup()
+            Card:
+                orientation: "horizontal"
+                size_hint_y: None
+                height: dp(64)
+                padding: dp(8)
+                spacing: dp(8)
+                Label:
+                    id: cart_count
+                    text: "0 item"
+                    color: TEXT
+                    bold: True
+                    size_hint_x: .30
+                    halign: "left"
+                    valign: "middle"
+                    text_size: self.size
+                Label:
+                    id: cart_total
+                    text: "Rp 0"
+                    color: PRIMARY
+                    font_size: "18sp"
+                    bold: True
+                    size_hint_x: .40
+                    halign: "right"
+                    valign: "middle"
+                    text_size: self.size
+                PrimaryButton:
+                    text: "KERANJANG"
+                    size_hint_x: .30
+                    on_release: root.open_cart_popup()
 
 
 <ProductScreen>:
-
     BoxLayout:
-
         orientation: "vertical"
-
-        padding: dp(12)
-
-        spacing: dp(10)
-
-
+        spacing: 0
         canvas.before:
-
             Color:
-
-                rgba: (.95,.97,.99,1)
-
+                rgba: BG
             Rectangle:
-
                 pos: self.pos
-
                 size: self.size
 
-
-        ScreenTitle:
-
-            text: "Produk"
-
+        BoxLayout:
             size_hint_y: None
-
-            height: dp(48)
-
+            height: dp(56)
+            padding: [dp(16), 0, dp(10), 0]
+            canvas.before:
+                Color:
+                    rgba: (.10,.31,.76,1)
+                Rectangle:
+                    pos: self.pos
+                    size: self.size
+            Label:
+                text: app.db.setting("store_name") or "KasirQU"
+                color: 1,1,1,1
+                font_size: "18sp"
+                bold: True
+                halign: "left"
+                valign: "middle"
+                text_size: self.size
+            Label:
+                text: "PRODUK"
+                color: (1,1,1,.82)
+                font_size: "11sp"
+                bold: True
+                size_hint_x: None
+                width: dp(64)
+                halign: "right"
+                valign: "middle"
+                text_size: self.size
 
         BoxLayout:
-
-            size_hint_y: None
-
-            height: dp(46)
-
+            orientation: "vertical"
+            padding: [dp(12), dp(9), dp(12), dp(8)]
             spacing: dp(8)
 
-            TextInput:
-
-                id: search
-
-                hint_text: "Cari nama, SKU, kategori..."
-
-                multiline: False
-
-                size_hint_x: 1
-
-                padding: [dp(12), dp(10)]
-
-                background_normal: ""
-
-                background_color: (1,1,1,1)
-
-                foreground_color: (.08,.11,.16,1)
-
-                cursor_color: (.12,.32,.78,1)
-
-                on_text:
-
-                    root.refresh(self.text)
-
-
-            PrimaryButton:
-
-                text: "+ PRODUK"
-
-                size_hint_x: None
-
-                width: dp(112)
-
-                on_release:
-
-                    root.open_editor()
-
-
-        ScrollView:
-
-            do_scroll_x: False
-
-            bar_width: dp(3)
-
-
-            GridLayout:
-
-                id: list
-
-                cols: 1
-
-                spacing: dp(8)
-
-                padding: dp(2)
-
+            BoxLayout:
                 size_hint_y: None
+                height: dp(42)
+                Label:
+                    id: count
+                    text: "Produk (0 Item)"
+                    color: TEXT
+                    font_size: "21sp"
+                    bold: True
+                    halign: "left"
+                    valign: "middle"
+                    text_size: self.size
+                PrimaryButton:
+                    text: "Tambah +"
+                    size_hint_x: None
+                    width: dp(112)
+                    on_release: root.open_editor()
 
-                height: self.minimum_height
+            BoxLayout:
+                size_hint_y: None
+                height: dp(44)
+                spacing: dp(7)
+                TextInput:
+                    id: search
+                    hint_text: "Cari produk, SKU, kategori..."
+                    multiline: False
+                    padding: [dp(12), dp(9)]
+                    background_normal: ""
+                    background_color: WHITE
+                    foreground_color: TEXT
+                    cursor_color: PRIMARY
+                    on_text: root.refresh(self.text, root.category_filter)
+                SoftButton:
+                    text: "FILTER"
+                    size_hint_x: None
+                    width: dp(82)
+                    on_release: root.toggle_categories()
+
+            ScrollView:
+                size_hint_y: None
+                height: dp(38)
+                do_scroll_y: False
+                bar_width: 0
+                GridLayout:
+                    id: categories
+                    rows: 1
+                    spacing: dp(6)
+                    size_hint_x: None
+                    width: self.minimum_width
+                    size_hint_y: None
+                    height: dp(34)
+
+            ScrollView:
+                do_scroll_x: False
+                bar_width: dp(3)
+                GridLayout:
+                    id: list
+                    cols: 1
+                    spacing: dp(8)
+                    padding: dp(1)
+                    size_hint_y: None
+                    height: self.minimum_height
 
 
 <TransactionScreen>:
-
     BoxLayout:
-
         orientation: "vertical"
-
-        padding: dp(12)
-
-        spacing: dp(10)
-
-
+        spacing: 0
         canvas.before:
-
             Color:
-
-                rgba: (.95,.97,.99,1)
-
+                rgba: BG
             Rectangle:
-
                 pos: self.pos
-
                 size: self.size
 
-
-        ScreenTitle:
-
-            text: "Riwayat Transaksi"
-
+        BoxLayout:
             size_hint_y: None
+            height: dp(56)
+            padding: [dp(16), 0, dp(10), 0]
+            canvas.before:
+                Color:
+                    rgba: (.10,.31,.76,1)
+                Rectangle:
+                    pos: self.pos
+                    size: self.size
+            Label:
+                text: app.db.setting("store_name") or "KasirQU"
+                color: 1,1,1,1
+                font_size: "18sp"
+                bold: True
+                halign: "left"
+                valign: "middle"
+                text_size: self.size
+            Label:
+                text: "TRANSAKSI"
+                color: (1,1,1,.82)
+                font_size: "11sp"
+                bold: True
+                size_hint_x: None
+                width: dp(82)
+                halign: "right"
+                valign: "middle"
+                text_size: self.size
 
-            height: dp(52)
+        BoxLayout:
+            orientation: "vertical"
+            padding: [dp(12), dp(9), dp(12), dp(8)]
+            spacing: dp(8)
 
-
-        ScrollView:
-
-            do_scroll_x: False
-
-            bar_width: dp(3)
-
-
-            GridLayout:
-
-                id: list
-
-                cols: 1
-
-                spacing: dp(8)
-
-                padding: dp(2)
-
+            BoxLayout:
                 size_hint_y: None
+                height: dp(42)
+                Label:
+                    id: count
+                    text: "Transaksi (0)"
+                    color: TEXT
+                    font_size: "21sp"
+                    bold: True
+                    halign: "left"
+                    valign: "middle"
+                    text_size: self.size
+                PrimaryButton:
+                    text: "+ Buat Transaksi"
+                    size_hint_x: None
+                    width: dp(142)
+                    on_release: app.navigate("pos")
 
-                height: self.minimum_height
+            BoxLayout:
+                size_hint_y: None
+                height: dp(44)
+                spacing: dp(7)
+                TextInput:
+                    id: search
+                    hint_text: "Cari invoice / pembayaran..."
+                    multiline: False
+                    padding: [dp(12), dp(9)]
+                    background_normal: ""
+                    background_color: WHITE
+                    foreground_color: TEXT
+                    cursor_color: PRIMARY
+                    on_text: root.refresh(self.text)
+                SoftButton:
+                    text: "FILTER"
+                    size_hint_x: None
+                    width: dp(82)
+                    on_release: root.refresh(self.ids.search.text)
 
+            ScrollView:
+                do_scroll_x: False
+                bar_width: dp(3)
+                GridLayout:
+                    id: list
+                    cols: 1
+                    spacing: dp(8)
+                    padding: dp(1)
+                    size_hint_y: None
+                    height: self.minimum_height
 
 <ReportScreen>:
 
@@ -1179,20 +1236,13 @@ KV = r'''
                             width: dp(130)
 
 
-                    PrimaryButton:
-
-                        text: "SIMPAN PENGATURAN"
-
-                        on_release: root.save()
-
-
                 Card:
 
                     orientation: "vertical"
 
                     size_hint_y: None
 
-                    height: dp(238)
+                    height: dp(292)
 
                     padding: dp(12)
 
@@ -1249,6 +1299,13 @@ KV = r'''
                         text: "TEST PRINT"
 
                         on_release: root.test_printer()
+
+
+                    PrimaryButton:
+
+                        text: "SIMPAN PENGATURAN"
+
+                        on_release: root.save()
 
 
                     Label:
@@ -2326,7 +2383,7 @@ class POSScreen(Screen):
                 spacing=dp(8),
             )
             discount_label = Label(
-                text="Diskon",
+                text="Diskon Toko",
                 color=MUTED,
                 font_size="12sp",
                 size_hint_x=None,
@@ -2363,7 +2420,7 @@ class POSScreen(Screen):
             summary.add_widget(total_box)
             content.add_widget(summary)
 
-            pay = make_button("BAYAR", primary=True, height=46)
+            pay = make_button("PILIH PEMBAYARAN  >", primary=True, height=46)
             content.add_widget(pay)
 
             def redraw(*_):
@@ -2416,7 +2473,7 @@ class POSScreen(Screen):
             pay.bind(on_release=payment)
 
             popup = style_popup(Popup(
-                title="Keranjang Belanja",
+                title="Checkout Transaksi",
                 content=content,
                 size_hint=(None, None),
                 size=(min(dp(520), Window.width * 0.94), min(dp(560), Window.height * 0.82)),
@@ -2622,7 +2679,7 @@ class POSScreen(Screen):
 
         cancel = make_button("Batal")
         done = make_button(
-            "SELESAIKAN",
+            "SELESAIKAN TRANSAKSI",
             primary=True
         )
 
@@ -2632,7 +2689,7 @@ class POSScreen(Screen):
         content.add_widget(buttons)
 
         popup = style_popup(Popup(
-            title="Pembayaran",
+            title="Pilih Pembayaran",
             content=content,
             size_hint=(None, None),
             size=(dp(380), dp(330))
@@ -2759,23 +2816,54 @@ class POSScreen(Screen):
 
 class ProductScreen(Screen):
 
+    category_filter = StringProperty("Semua")
+
     def on_enter(self):
 
         self.app = App.get_running_app()
 
         self.refresh()
 
-    def refresh(self, search=""):
+    def toggle_categories(self):
+        try:
+            box = self.ids.categories
+            box.clear_widgets()
+            categories = ["Semua"]
+            seen = set()
+            for p in self.app.db.products():
+                c = safe_text(p["category"]).strip()
+                if c and c.lower() not in seen:
+                    seen.add(c.lower()); categories.append(c)
+            for category in categories:
+                b = make_button(category, primary=(category == self.category_filter), height=34)
+                b.size_hint_x = None
+                b.width = max(dp(72), dp(18) + len(category) * dp(7))
+                b.bind(on_release=lambda *_a, c=category: self.set_category(c))
+                box.add_widget(b)
+        except Exception as error:
+            self.app.log_error("PRODUCT_CATEGORIES", error)
+
+    def set_category(self, category):
+        self.category_filter = category
+        self.toggle_categories()
+        self.refresh(self.ids.search.text, category)
+
+    def refresh(self, search="", category="Semua"):
         try:
             box = self.ids.list
             box.clear_widgets()
             products = self.app.db.products(search)
+            if category and category != "Semua":
+                products = [p for p in products if safe_text(p["category"]).strip().lower() == category.strip().lower()]
+
+            self.ids.count.text = f"Produk ({len(products)} Item)"
+            self.toggle_categories()
 
             for product in products:
                 row = Card(
                     orientation="horizontal",
                     size_hint_y=None,
-                    height=dp(88),
+                    height=dp(86),
                     spacing=dp(9),
                     padding=dp(7),
                 )
@@ -2785,64 +2873,40 @@ class ProductScreen(Screen):
                     image = Image(
                         source=image_path,
                         size_hint_x=None,
-                        width=dp(72),
+                        width=dp(68),
                         allow_stretch=True,
                         keep_ratio=True,
                     )
                     image.reload()
                     row.add_widget(image)
                 else:
-                    row.add_widget(
-                        Label(
-                            text="FOTO",
-                            size_hint_x=None,
-                            width=dp(72),
-                            color=MUTED,
-                            bold=True,
-                        )
-                    )
+                    row.add_widget(Label(text="FOTO", size_hint_x=None, width=dp(68), color=MUTED, bold=True))
 
                 info = Label(
-                    text=(
-                        f'{safe_text(product["name"])}\n'
-                        f'{money(product["price"])}  |  stok {float(product["stock"]):g}\n'
-                        f'{safe_text(product["category"]) or "Tanpa kategori"}'
-                    ),
-                    color=TEXT,
-                    font_size="11sp",
-                    halign="left",
-                    valign="middle",
+                    text=f'{safe_text(product["name"])}\n{money(product["price"])}\n{safe_text(product["category"]) or "Tanpa kategori"}',
+                    color=TEXT, font_size="11sp", halign="left", valign="middle"
                 )
                 info.bind(size=lambda widget, value: setattr(widget, "text_size", value))
                 row.add_widget(info)
 
-                restock_button = make_button("STOK +", primary=False, height=38)
-                restock_button.size_hint_x = None
-                restock_button.width = dp(62)
-                restock_button.bind(
-                    on_release=lambda *_args, product=product:
-                    self.open_restock(product)
+                stock = PillLabel(
+                    text=("STOK HABIS" if safe_float(product["stock"]) <= 0 else f'STOK {float(product["stock"]):g}'),
+                    bg_color=("danger" if safe_float(product["stock"]) <= 0 else "success"),
+                    color=WHITE, bold=True, font_size="10sp",
+                    size_hint_x=None, width=dp(76), halign="center", valign="middle"
                 )
-                row.add_widget(restock_button)
+                stock.text_size = stock.size
+                row.add_widget(stock)
 
-                edit_button = make_button("EDIT", primary=True, height=38)
-                edit_button.size_hint_x = None
-                edit_button.width = dp(58)
-                edit_button.bind(
-                    on_release=lambda *_args, product=product:
-                    self.open_editor(product)
-                )
+                edit_button = make_button("EDIT", primary=True, height=36)
+                edit_button.size_hint_x = None; edit_button.width = dp(56)
+                edit_button.bind(on_release=lambda *_args, product=product: self.open_editor(product))
                 row.add_widget(edit_button)
 
-                delete_button = make_button("HAPUS", primary=False, height=38)
-                delete_button.size_hint_x = None
-                delete_button.width = dp(62)
-                delete_button.background_color = DANGER
-                delete_button.color = WHITE
-                delete_button.bind(
-                    on_release=lambda *_args, product=product:
-                    self.confirm_delete(product)
-                )
+                delete_button = make_button("HAPUS", primary=False, height=36)
+                delete_button.size_hint_x = None; delete_button.width = dp(62)
+                delete_button.background_color = DANGER; delete_button.color = WHITE
+                delete_button.bind(on_release=lambda *_args, product=product: self.confirm_delete(product))
                 row.add_widget(delete_button)
 
                 box.add_widget(row)
@@ -3112,7 +3176,7 @@ class TransactionScreen(Screen):
 
         self.refresh()
 
-    def refresh(self):
+    def refresh(self, search=""):
 
         try:
 
@@ -3120,64 +3184,45 @@ class TransactionScreen(Screen):
 
             box.clear_widgets()
 
-            for sale in self.app.db.sales():
+            sales = self.app.db.sales()
+            q = safe_text(search).strip().lower()
+            if q:
+                sales = [sale for sale in sales if q in safe_text(sale["invoice"]).lower() or q in safe_text(sale["payment_method"]).lower() or q in safe_text(sale["created_at"]).lower()]
+            self.ids.count.text = f"Transaksi ({len(sales)})"
+
+            for sale in sales:
 
                 row = Card(
-                    orientation="horizontal",
-                    size_hint_y=None,
-                    height=dp(82),
-                    padding=dp(10),
-                    spacing=dp(8)
+                    orientation="horizontal", size_hint_y=None, height=dp(82),
+                    padding=dp(9), spacing=dp(8)
                 )
-
+                voided = bool(int(sale["voided"] or 0)) if "voided" in sale.keys() else False
                 info = Label(
-                    text=(
-                        f'{sale["invoice"]}\n'
-                        f'{sale["created_at"]}\n'
-                        f'{sale["payment_method"]}' + ("  |  VOID" if ("voided" in sale.keys() and int(sale["voided"] or 0)) else "")
-                    ),
-                    color=TEXT,
-                    halign="left",
-                    valign="middle"
+                    text=f'{sale["invoice"]}\n{sale["created_at"]}  |  {sale["payment_method"]}',
+                    color=TEXT, halign="left", valign="middle", font_size="11sp"
                 )
+                info.bind(size=lambda w, v: setattr(w, "text_size", v))
+                row.add_widget(info)
 
-                info.bind(
-                    size=lambda widget, value:
-                    setattr(
-                        widget,
-                        "text_size",
-                        value
-                    )
+                status = PillLabel(
+                    text=("DIBATALKAN" if voided else "DIBAYAR"),
+                    bg_color=("danger" if voided else "success"),
+                    color=WHITE, bold=True, font_size="9sp",
+                    size_hint_x=None, width=dp(78), halign="center", valign="middle"
                 )
+                status.text_size = status.size
+                row.add_widget(status)
 
                 total = Label(
-                    text=money(
-                        sale["total"]
-                    ),
-                    color=PRIMARY,
-                    bold=True,
-                    font_size="15sp",
-                    size_hint_x=.35,
-                    halign="right",
-                    valign="middle"
+                    text=money(sale["total"]), color=PRIMARY, bold=True, font_size="14sp",
+                    size_hint_x=None, width=dp(92), halign="right", valign="middle"
                 )
-
-                total.bind(
-                    size=lambda widget, value:
-                    setattr(
-                        widget,
-                        "text_size",
-                        value
-                    )
-                )
-
-                row.add_widget(info)
+                total.bind(size=lambda w, v: setattr(w, "text_size", v))
                 row.add_widget(total)
 
-                detail = make_button("DETAIL", primary=True, height=42)
-                detail.size_hint_x = None
-                detail.width = dp(72)
-                detail.bind(on_release=lambda *_ , sale_id=sale["id"]: self.open_detail(sale_id))
+                detail = make_button("DETAIL", primary=True, height=36)
+                detail.size_hint_x = None; detail.width = dp(64)
+                detail.bind(on_release=lambda *_a, sale_id=sale["id"]: self.open_detail(sale_id))
                 row.add_widget(detail)
 
                 box.add_widget(row)
@@ -3499,7 +3544,8 @@ class SettingsScreen(Screen):
                 self.ids.footer.text
             )
 
-            logo_path = self.app.save_selected_image(self.ids.receipt_logo_preview.source)
+            logo_source = self.ids.receipt_logo_preview.source or self.app.db.setting("receipt_logo") or ""
+            logo_path = self.app.save_receipt_logo(logo_source) if logo_source else ""
             self.app.db.set_setting("receipt_logo", logo_path)
 
             self.app.db.set_setting(
@@ -3668,11 +3714,25 @@ class UniversalPOS(App):
         )
 
     # --------------------------------------------------------
+    # STARTUP TRACE
+    # --------------------------------------------------------
+
+    def log_startup(self, stage):
+        try:
+            os.makedirs(self.user_data_dir, exist_ok=True)
+            path = os.path.join(self.user_data_dir, "KasirQU_startup.log")
+            with open(path, "a", encoding="utf-8") as file:
+                file.write(datetime.now().isoformat() + " | " + str(stage) + "\n")
+        except Exception:
+            pass
+
+    # --------------------------------------------------------
     # BUILD
     # --------------------------------------------------------
 
     def build(self):
 
+        self.log_startup("BUILD_ENTER")
         try:
 
             data_dir = self.user_data_dir
@@ -3711,6 +3771,7 @@ class UniversalPOS(App):
             self.db = DB(
                 database_path
             )
+            self.log_startup("DATABASE_READY")
 
             self.tax_percent = (
                 self.db.setting(
@@ -3720,7 +3781,9 @@ class UniversalPOS(App):
                 "0"
             )
 
+            self.log_startup("LOADING_KV")
             root = Builder.load_string(KV)
+            self.log_startup("KV_READY")
 
             if root is None:
 
@@ -3834,6 +3897,7 @@ class UniversalPOS(App):
 
     def on_start(self):
 
+        self.log_startup("ON_START")
         Clock.schedule_once(
             self.finish_startup,
             .5
@@ -3870,8 +3934,11 @@ class UniversalPOS(App):
             sm.current = "pos"
 
             pos = sm.get_screen("pos")
+            self.log_startup("SCREEN_POS_READY")
 
             pos.refresh_products()
+            self.log_startup("PRODUCTS_READY")
+            self.refresh_nav_highlight()
 
         except Exception as error:
 
@@ -3935,6 +4002,7 @@ class UniversalPOS(App):
             )
 
             if current == target:
+                self.refresh_nav_highlight()
                 return
 
             sm.transition = SlideTransition(
@@ -3947,6 +4015,7 @@ class UniversalPOS(App):
             )
 
             sm.current = name
+            self.refresh_nav_highlight()
 
         except Exception as error:
 
@@ -3954,6 +4023,19 @@ class UniversalPOS(App):
                 "NAVIGATION",
                 error
             )
+
+    def refresh_nav_highlight(self):
+        try:
+            current = self.root.ids.sm.current
+            def walk(widget):
+                yield widget
+                for child in getattr(widget, "children", []):
+                    yield from walk(child)
+            for widget in walk(self.root):
+                if isinstance(widget, IconNavButton):
+                    widget.is_active = (widget.nav_name == current)
+        except Exception as error:
+            self.log_error("NAV_HIGHLIGHT", error)
 
     # --------------------------------------------------------
     # NOTIFY
@@ -4340,6 +4422,7 @@ class UniversalPOS(App):
 
         try:
 
+            from kivy.uix.filechooser import FileChooserListView
             chooser = FileChooserListView(
                 path=os.path.expanduser("~"),
                 filters=[
@@ -4431,6 +4514,26 @@ class UniversalPOS(App):
                 "DESKTOP_IMAGE_PICKER",
                 error
             )
+
+    # --------------------------------------------------------
+    # SAVE RECEIPT LOGO
+    # --------------------------------------------------------
+
+    def save_receipt_logo(self, path):
+        """Simpan logo struk ke nama tetap agar path stabil di Android."""
+        if not path:
+            return ""
+        try:
+            source = self.resolve_image(path) or os.path.abspath(str(path))
+            if not os.path.isfile(source):
+                return ""
+            os.makedirs(self.images_dir, exist_ok=True)
+            destination = os.path.join(self.images_dir, "receipt_logo.png")
+            shutil.copy2(source, destination)
+            return destination if os.path.isfile(destination) and os.path.getsize(destination) > 0 else ""
+        except Exception as error:
+            self.log_error("SAVE_RECEIPT_LOGO", error)
+            return ""
 
     # --------------------------------------------------------
     # SAVE SELECTED IMAGE
@@ -4871,7 +4974,6 @@ class UniversalPOS(App):
             )
 
             payload = self.build_receipt_bytes()
-
             # Kirim bertahap supaya buffer printer Bluetooth tidak overflow.
             chunk_size = 512
             for start in range(0, len(payload), chunk_size):
@@ -4881,9 +4983,7 @@ class UniversalPOS(App):
                     time.sleep(0.015)
                 except Exception:
                     pass
-
             output.flush()
-
             try:
                 import time
                 time.sleep(0.20)
@@ -4920,99 +5020,64 @@ class UniversalPOS(App):
     # ========================================================
 
     def _receipt_logo_raster(self, path, max_width):
-        """Raster logo thermal yang kecil dan orientasinya normal.
-
-        Printer menerima ESC * mode 0 (8-dot). Kivy Texture.pixels
-        ber-origin bottom-left, sehingga source image dibaca dari baris
-        paling atas ke bawah sebelum dikirim ke printer.
-        """
-        if not path or not os.path.isfile(path):
+        """Konversi logo ke ESC/POS ESC * mode 0 dengan rotasi 180 derajat."""
+        if not path:
             return b""
-
         try:
-            image = CoreImage(path)
-            texture = image.texture
+            path = self.resolve_image(path) or os.path.abspath(str(path))
+            if not os.path.isfile(path):
+                self.log_error("RECEIPT_LOGO_PATH", FileNotFoundError(path))
+                return b""
+            from kivy.core.image import Image as CoreImage
+            ci = CoreImage(path)
+            texture = ci.texture
             if texture is None:
                 return b""
-
-            w, h = texture.size
+            w, h = int(texture.width), int(texture.height)
             pixels = texture.pixels
-            if not pixels or w <= 0 or h <= 0:
+            if not pixels or w < 1 or h < 1:
                 return b""
 
-            # Logo receipt dibuat sangat kecil agar tidak mengambil
-            # area utama struk.
-            # 58mm: maksimum 64 dot.
-            # 80mm: maksimum 96 dot.
             paper = self.db.setting("paper") or "58mm"
-
             target_width = 64 if paper == "58mm" else 96
             target_height = 48 if paper == "58mm" else 64
-
             if max_width:
                 target_width = min(target_width, int(max_width))
-
-            scale = min(
-                1.0,
-                float(target_width) / float(w),
-                float(target_height) / float(h)
-            )
-
+            scale = min(1.0, float(target_width) / float(w), float(target_height) / float(h))
             nw = max(1, int(w * scale))
             nh = max(1, int(h * scale))
-
             out = bytearray()
 
-            # ESC * mode 0 = 8 vertical dots.
-            # Dengan bit 7 sebagai pixel paling atas, setiap band dibaca
-            # dari image top -> bottom.
+            # ESC * mode 0 = 8 vertical dots per column.
+            # X dan Y source dibalik untuk koreksi rotasi 180 derajat.
             for band_top in range(0, nh, 8):
-                out += bytes([
-                    0x1B, 0x2A, 0x00,
-                    nw & 0xFF, (nw >> 8) & 0xFF
-                ])
-
+                out += bytes([0x1B, 0x2A, 0x00, nw & 0xFF, (nw >> 8) & 0xFF])
                 for x in range(nw):
-                    sx = min(w - 1, int(x / scale))
                     byte = 0
-
+                    sx = min(w - 1, int((nw - 1 - x) / scale))
                     for bit in range(8):
-                        y_top = band_top + bit
-                        if y_top >= nh:
+                        y_out = band_top + bit
+                        if y_out >= nh:
                             continue
-
-                        # Kivy pixels: row 0 = bottom.
-                        # y_top = 0 harus mengambil row paling atas.
-                        sy = h - 1 - min(h - 1, int(y_top / scale))
-
+                        sy = min(h - 1, int(y_out / scale))
                         idx = (sy * w + sx) * 4
                         if idx + 3 >= len(pixels):
                             continue
-
                         r = pixels[idx]
                         g = pixels[idx + 1]
                         b = pixels[idx + 2]
                         a = pixels[idx + 3]
-
                         if a < 60:
-                            black = False
-                        else:
-                            lum = (0.299 * r) + (0.587 * g) + (0.114 * b)
-                            black = lum < 205
-
-                        if black:
+                            continue
+                        lum = (0.299 * r) + (0.587 * g) + (0.114 * b)
+                        if lum < 205:
                             byte |= (0x80 >> bit)
-
                     out.append(byte)
-
                 out += b"\n"
-
             return bytes(out)
-
         except Exception as error:
             self.log_error("RECEIPT_LOGO_RASTER", error)
             return b""
-
 
     def _receipt_columns(self, left, right, width):
         left = printer_text(left).replace("\n", " ")
@@ -5043,19 +5108,25 @@ class UniversalPOS(App):
 
         paper = self.db.setting("paper") or "58mm"
         width = 32 if paper == "58mm" else 48
-        logo_width = 120 if paper == "58mm" else 160
+        logo_width = 64 if paper == "58mm" else 96
 
         store = self.db.setting("store_name") or APP_NAME
         address = self.db.setting("store_address") or ""
         footer = self.db.setting("receipt_footer") or "Terima kasih"
         cashier = self.db.setting("cashier_name") or "Kasir"
-        logo_path = self.resolve_image(self.db.setting("receipt_logo"))
+        logo_setting = self.db.setting("receipt_logo") or ""
+        logo_path = self.resolve_image(logo_setting)
+        if logo_setting and not logo_path:
+            self.log_error("RECEIPT_LOGO_NOT_FOUND", FileNotFoundError(str(logo_setting)))
 
-        # Reset printer. Semua teks di bawah sudah dinormalisasi ke ASCII,
-        # jadi tidak bergantung pada code-page UTF-8 printer.
         out = bytearray(b"\x1b\x40")
+        out += b"\x1b\x74\x00"  # ESC t 0
+        out += b"\x1b\x52\x00"  # ESC R 0
+        out += b"\x1b\x7b\x00"  # ESC { 0
+        out += b"\x1b\x4d\x00"  # ESC M 0
+        out += b"\x1b\x32"       # ESC 2
 
-        # Logo: center, ESC * mode 0, lalu kembali ke kiri.
+        # Logo: center, raster image, lalu kembali ke kiri.
         logo = self._receipt_logo_raster(logo_path, logo_width)
         if logo:
             out += b"\x1b\x61\x01" + logo + b"\x1b\x61\x00"
@@ -5065,13 +5136,13 @@ class UniversalPOS(App):
         header = [store.center(width)]
         if address.strip():
             header.append(address.center(width))
-        out += printer_bytes("\n".join(header) + "\n")
+        out += ("\n".join(header) + "\n").encode("ascii", "replace")
         out += b"\x1b\x45\x00"
         out += ("-" * width + "\n").encode("ascii")
 
-        out += printer_bytes(invoice + "\n")
-        out += printer_bytes(self._receipt_columns("Tanggal", datetime.now().strftime("%d/%m/%Y %H:%M"), width) + "\n")
-        out += printer_bytes(self._receipt_columns("Kasir", cashier, width) + "\n")
+        out += (invoice + "\n").encode("ascii", "replace")
+        out += (self._receipt_columns("Tanggal", datetime.now().strftime("%d/%m/%Y %H:%M"), width) + "\n").encode("ascii", "replace")
+        out += (self._receipt_columns("Kasir", cashier, width) + "\n").encode("ascii", "replace")
         out += ("-" * width + "\n").encode("ascii")
 
         for item in cart:
@@ -5079,7 +5150,7 @@ class UniversalPOS(App):
                 item["name"], item["qty"], item["price"],
                 item["qty"] * item["price"], width
             ):
-                out += printer_bytes(line + "\n")
+                out += (line + "\n").encode("ascii", "replace")
 
         out += ("-" * width + "\n").encode("ascii")
         totals = [
@@ -5095,13 +5166,13 @@ class UniversalPOS(App):
             line = self._receipt_columns(label, value, width)
             if label == "TOTAL":
                 out += b"\x1b\x45\x01"
-                out += printer_bytes(line + "\n")
+                out += (line + "\n").encode("ascii", "replace")
                 out += b"\x1b\x45\x00"
             else:
-                out += printer_bytes(line + "\n")
+                out += (line + "\n").encode("ascii", "replace")
 
         out += ("-" * width + "\n").encode("ascii")
-        out += printer_bytes(footer.center(width)) + b"\n\n\n"
+        out += footer.center(width).encode("ascii", "replace") + b"\n\n\n"
         out += b"\x1d\x56\x00"
         return bytes(out)
 
