@@ -25,7 +25,7 @@ from kivy.uix.spinner import Spinner
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.widget import Widget
 from kivy.uix.anchorlayout import AnchorLayout
-from kivy.graphics import Color, RoundedRectangle
+from kivy.graphics import Color, RoundedRectangle, Line
 from kivy.clock import Clock
 from kivy.utils import platform
 
@@ -213,7 +213,7 @@ class IconNavButton(BoxLayout):
         super().__init__(orientation="vertical", **kwargs)
         self.spacing = dp(2)
         self.size_hint_y = None
-        self.height = dp(78)
+        self.height = dp(66)
         self.padding = [dp(4), dp(4), dp(4), dp(4)]
         self.size_hint_x = 1
         self._touch_start = None
@@ -221,7 +221,7 @@ class IconNavButton(BoxLayout):
         self.icon = Image(
             source="",
             size_hint=(1, None),
-            height=dp(46),
+            height=dp(38),
             allow_stretch=True,
             keep_ratio=True
         )
@@ -231,7 +231,7 @@ class IconNavButton(BoxLayout):
             bold=True,
             color=MUTED,
             size_hint=(1, None),
-            height=dp(22),
+            height=dp(20),
             halign="center",
             valign="middle"
         )
@@ -246,10 +246,11 @@ class IconNavButton(BoxLayout):
                 pos=self.pos, size=self.size, radius=[dp(10)]
             )
             self._nav_color = Color(0.12, 0.32, 0.78, 0)
+            self._nav_border_color = Color(0.12, 0.32, 0.78, 0)
             from kivy.graphics import Line
             self._nav_border = Line(
                 rounded_rectangle=(self.x, self.y, self.width, self.height, dp(10)),
-                width=dp(2)
+                width=dp(1.5)
             )
 
         self.bind(pos=self._update_bg, size=self._update_bg)
@@ -285,7 +286,10 @@ class IconNavButton(BoxLayout):
             self.x, self.y, self.width, self.height, dp(10)
         )
         self._nav_color.rgba = (
-            0.12, 0.32, 0.78, 1 if self.is_active else 0
+            0.12, 0.32, 0.78, 0.08 if self.is_active else 0
+        )
+        self._nav_border_color.rgba = (
+            0.12, 0.32, 0.78, 0.95 if self.is_active else 0
         )
         self.label.color = PRIMARY if self.is_active else MUTED
 
@@ -394,44 +398,86 @@ KV = r'''
 
 
 <PrimaryButton@Button>:
-
     background_normal: ""
-
     background_down: ""
-
-    background_color:
-        (.08,.24,.62,1) if self.state == "down" else (.12,.32,.78,1)
-
+    background_color: (.08,.24,.62,1) if self.state == "down" else (.12,.32,.78,1)
     color: 1,1,1,1
-
     bold: True
-
-    font_size: "14sp"
-
+    font_size: "13sp"
     size_hint_y: None
-
-    height: dp(46)
-
+    height: dp(44)
+    padding: [dp(14), 0]
+    canvas.before:
+        Color:
+            rgba: self.background_color
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [dp(10)]
 
 <SoftButton@Button>:
-
     background_normal: ""
-
     background_down: ""
-
-    background_color:
-        (.88,.91,.96,1) if self.state == "down" else (1,1,1,1)
-
+    background_color: (.90,.93,.98,1) if self.state == "down" else (1,1,1,1)
     color: (.08,.11,.16,1)
-
     bold: True
-
-    font_size: "13sp"
-
+    font_size: "12sp"
     size_hint_y: None
-
     height: dp(44)
+    canvas.before:
+        Color:
+            rgba: self.background_color
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [dp(10)]
+        Color:
+            rgba: (.87,.89,.93,1)
+        Line:
+            rounded_rectangle: (self.x,self.y,self.width,self.height,dp(10))
+            width: 1
 
+<ModernInput@TextInput>:
+    multiline: False
+    padding: [dp(13), dp(10)]
+    background_normal: ""
+    background_color: 0,0,0,0
+    foreground_color: (.08,.11,.16,1)
+    hint_text_color: (.52,.56,.63,1)
+    cursor_color: (.12,.32,.78,1)
+    font_size: "13sp"
+    canvas.before:
+        Color:
+            rgba: (1,1,1,1)
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [dp(11)]
+        Color:
+            rgba: (.12,.32,.78,1) if self.focus else (.89,.91,.95,1)
+        Line:
+            rounded_rectangle: (self.x,self.y,self.width,self.height,dp(11))
+            width: 1.1 if self.focus else 1
+
+<Spinner>:
+    background_normal: ""
+    background_down: ""
+    background_color: (1,1,1,1)
+    color: (.08,.11,.16,1)
+    font_size: "13sp"
+    bold: True
+    canvas.before:
+        Color:
+            rgba: (1,1,1,1)
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [dp(10)]
+        Color:
+            rgba: (.89,.91,.95,1)
+        Line:
+            rounded_rectangle: (self.x,self.y,self.width,self.height,dp(10))
+            width: 1
 
 <ScreenTitle@Label>:
 
@@ -478,15 +524,15 @@ KV = r'''
         spacing: 0
         canvas.before:
             Color:
-                rgba: (.95,.97,.99,1)
+                rgba: (.965,.972,.985,1)
             Rectangle:
                 pos: self.pos
                 size: self.size
 
         BoxLayout:
             size_hint_y: None
-            height: dp(56)
-            padding: [dp(16), 0, dp(10), 0]
+            height: dp(60)
+            padding: [dp(17), 0, dp(14), 0]
             canvas.before:
                 Color:
                     rgba: (.10,.31,.76,1)
@@ -535,7 +581,7 @@ KV = r'''
                 size_hint_y: None
                 height: dp(46)
                 spacing: dp(7)
-                TextInput:
+                ModernInput:
                     id: search
                     hint_text: "Cari produk / scan barcode..."
                     multiline: False
@@ -568,8 +614,8 @@ KV = r'''
                 GridLayout:
                     id: products
                     cols: 4
-                    spacing: dp(8)
-                    padding: dp(1)
+                    spacing: dp(9)
+                    padding: [dp(1), dp(1), dp(1), dp(5)]
                     size_hint_y: None
                     height: self.minimum_height
 
@@ -610,15 +656,15 @@ KV = r'''
         spacing: 0
         canvas.before:
             Color:
-                rgba: (.95,.97,.99,1)
+                rgba: (.965,.972,.985,1)
             Rectangle:
                 pos: self.pos
                 size: self.size
 
         BoxLayout:
             size_hint_y: None
-            height: dp(56)
-            padding: [dp(16), 0, dp(10), 0]
+            height: dp(60)
+            padding: [dp(17), 0, dp(14), 0]
             canvas.before:
                 Color:
                     rgba: (.10,.31,.76,1)
@@ -646,7 +692,7 @@ KV = r'''
 
         BoxLayout:
             orientation: "vertical"
-            padding: [dp(12), dp(9), dp(12), dp(8)]
+            padding: [dp(14), dp(12), dp(14), dp(10)]
             spacing: dp(8)
 
             BoxLayout:
@@ -671,7 +717,7 @@ KV = r'''
                 size_hint_y: None
                 height: dp(44)
                 spacing: dp(7)
-                TextInput:
+                ModernInput:
                     id: search
                     hint_text: "Cari produk, SKU, kategori..."
                     multiline: False
@@ -707,8 +753,8 @@ KV = r'''
                 GridLayout:
                     id: list
                     cols: 1
-                    spacing: dp(8)
-                    padding: dp(1)
+                    spacing: dp(9)
+                    padding: [dp(1), dp(1), dp(1), dp(5)]
                     size_hint_y: None
                     height: self.minimum_height
 
@@ -719,15 +765,15 @@ KV = r'''
         spacing: 0
         canvas.before:
             Color:
-                rgba: (.95,.97,.99,1)
+                rgba: (.965,.972,.985,1)
             Rectangle:
                 pos: self.pos
                 size: self.size
 
         BoxLayout:
             size_hint_y: None
-            height: dp(56)
-            padding: [dp(16), 0, dp(10), 0]
+            height: dp(60)
+            padding: [dp(17), 0, dp(14), 0]
             canvas.before:
                 Color:
                     rgba: (.10,.31,.76,1)
@@ -755,7 +801,7 @@ KV = r'''
 
         BoxLayout:
             orientation: "vertical"
-            padding: [dp(12), dp(9), dp(12), dp(8)]
+            padding: [dp(14), dp(12), dp(14), dp(10)]
             spacing: dp(8)
 
             BoxLayout:
@@ -780,7 +826,7 @@ KV = r'''
                 size_hint_y: None
                 height: dp(44)
                 spacing: dp(7)
-                TextInput:
+                ModernInput:
                     id: search
                     hint_text: "Cari invoice / pembayaran..."
                     multiline: False
@@ -802,8 +848,8 @@ KV = r'''
                 GridLayout:
                     id: list
                     cols: 1
-                    spacing: dp(8)
-                    padding: dp(1)
+                    spacing: dp(9)
+                    padding: [dp(1), dp(1), dp(1), dp(5)]
                     size_hint_y: None
                     height: self.minimum_height
 
@@ -822,7 +868,7 @@ KV = r'''
 
             Color:
 
-                rgba: (.95,.97,.99,1)
+                rgba: (.965,.972,.985,1)
 
             Rectangle:
 
@@ -892,7 +938,7 @@ KV = r'''
 
             Color:
 
-                rgba: (.95,.97,.99,1)
+                rgba: (.965,.972,.985,1)
 
             Rectangle:
 
@@ -960,7 +1006,7 @@ KV = r'''
                         text_size: self.size
 
 
-                    TextInput:
+                    ModernInput:
 
                         id: store
 
@@ -981,7 +1027,7 @@ KV = r'''
                         foreground_color: (.08,.11,.16,1)
 
 
-                    TextInput:
+                    ModernInput:
 
                         id: address
 
@@ -1002,7 +1048,7 @@ KV = r'''
                         foreground_color: (.08,.11,.16,1)
 
 
-                    TextInput:
+                    ModernInput:
 
                         id: footer
 
@@ -1128,7 +1174,7 @@ KV = r'''
                         text_size: self.size
 
 
-                    TextInput:
+                    ModernInput:
 
                         id: cashier
 
@@ -1168,7 +1214,7 @@ KV = r'''
 
                         spacing: dp(8)
 
-                        TextInput:
+                        ModernInput:
 
                             id: tax
 
@@ -1185,7 +1231,7 @@ KV = r'''
                             background_color: (1,1,1,1)
 
 
-                        TextInput:
+                        ModernInput:
 
                             id: low_stock
 
@@ -1426,7 +1472,7 @@ BoxLayout:
 
         size_hint_y: None
 
-        height: dp(88)
+        height: dp(76)
 
         padding: dp(5)
 
@@ -2018,7 +2064,28 @@ def make_button(
     )
 
     button.bold = True
+    button.padding = [dp(10), 0]
 
+    # Subtle rounded treatment for dynamically created buttons
+    # (categories, editor dialogs, checkout controls) without changing callbacks.
+    with button.canvas.before:
+        bg_color = Color(*button.background_color)
+        bg_rect = RoundedRectangle(
+            pos=button.pos, size=button.size, radius=[dp(10)]
+        )
+        border_color = Color(*BORDER)
+        border = Line(
+            rounded_rectangle=(button.x, button.y, button.width, button.height, dp(10)),
+            width=0.9
+        )
+
+    def sync(*_):
+        bg_color.rgba = button.background_color
+        bg_rect.pos = button.pos
+        bg_rect.size = button.size
+        border.rounded_rectangle = (button.x, button.y, button.width, button.height, dp(10))
+
+    button.bind(pos=sync, size=sync, background_color=sync)
     return button
 
 
