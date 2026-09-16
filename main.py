@@ -245,7 +245,7 @@ class IconNavButton(BoxLayout):
             self._nav_bg = RoundedRectangle(
                 pos=self.pos, size=self.size, radius=[dp(10)]
             )
-            Color(0.12, 0.32, 0.78, 0)
+            self._nav_color = Color(0.12, 0.32, 0.78, 0)
             from kivy.graphics import Line
             self._nav_border = Line(
                 rounded_rectangle=(self.x, self.y, self.width, self.height, dp(10)),
@@ -284,7 +284,7 @@ class IconNavButton(BoxLayout):
         self._nav_border.rounded_rectangle = (
             self.x, self.y, self.width, self.height, dp(10)
         )
-        self._nav_border.rgba = (
+        self._nav_color.rgba = (
             0.12, 0.32, 0.78, 1 if self.is_active else 0
         )
         self.label.color = PRIMARY if self.is_active else MUTED
