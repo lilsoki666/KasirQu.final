@@ -522,7 +522,7 @@ KV = r'''
                 height: dp(42)
                 Label:
                     text: "Kasir"
-                    color: TEXT
+                    color: (.08,.11,.16,1)
                     font_size: "22sp"
                     bold: True
                     halign: "left"
@@ -542,8 +542,8 @@ KV = r'''
                     padding: [dp(12), dp(10)]
                     background_normal: ""
                     background_color: 1,1,1,1
-                    foreground_color: TEXT
-                    cursor_color: PRIMARY
+                    foreground_color: (.08,.11,.16,1)
+                    cursor_color: (.12,.32,.78,1)
                     on_text: root.refresh_products(self.text)
                     on_text_validate: root.quick_add_by_code(self.text)
                 PrimaryButton:
@@ -554,7 +554,7 @@ KV = r'''
 
             Label:
                 text: "Pilih Produk"
-                color: MUTED
+                color: (.40,.44,.51,1)
                 font_size: "13sp"
                 bold: True
                 size_hint_y: None
@@ -582,7 +582,7 @@ KV = r'''
                 Label:
                     id: cart_count
                     text: "0 item"
-                    color: TEXT
+                    color: (.08,.11,.16,1)
                     bold: True
                     size_hint_x: .30
                     halign: "left"
@@ -591,7 +591,7 @@ KV = r'''
                 Label:
                     id: cart_total
                     text: "Rp 0"
-                    color: PRIMARY
+                    color: (.12,.32,.78,1)
                     font_size: "18sp"
                     bold: True
                     size_hint_x: .40
@@ -610,7 +610,7 @@ KV = r'''
         spacing: 0
         canvas.before:
             Color:
-                rgba: BG
+                rgba: (.95,.97,.99,1)
             Rectangle:
                 pos: self.pos
                 size: self.size
@@ -655,7 +655,7 @@ KV = r'''
                 Label:
                     id: count
                     text: "Produk (0 Item)"
-                    color: TEXT
+                    color: (.08,.11,.16,1)
                     font_size: "21sp"
                     bold: True
                     halign: "left"
@@ -677,9 +677,9 @@ KV = r'''
                     multiline: False
                     padding: [dp(12), dp(9)]
                     background_normal: ""
-                    background_color: WHITE
-                    foreground_color: TEXT
-                    cursor_color: PRIMARY
+                    background_color: (1,1,1,1)
+                    foreground_color: (.08,.11,.16,1)
+                    cursor_color: (.12,.32,.78,1)
                     on_text: root.refresh(self.text, root.category_filter)
                 SoftButton:
                     text: "FILTER"
@@ -719,7 +719,7 @@ KV = r'''
         spacing: 0
         canvas.before:
             Color:
-                rgba: BG
+                rgba: (.95,.97,.99,1)
             Rectangle:
                 pos: self.pos
                 size: self.size
@@ -764,7 +764,7 @@ KV = r'''
                 Label:
                     id: count
                     text: "Transaksi (0)"
-                    color: TEXT
+                    color: (.08,.11,.16,1)
                     font_size: "21sp"
                     bold: True
                     halign: "left"
@@ -786,9 +786,9 @@ KV = r'''
                     multiline: False
                     padding: [dp(12), dp(9)]
                     background_normal: ""
-                    background_color: WHITE
-                    foreground_color: TEXT
-                    cursor_color: PRIMARY
+                    background_color: (1,1,1,1)
+                    foreground_color: (.08,.11,.16,1)
+                    cursor_color: (.12,.32,.78,1)
                     on_text: root.refresh(self.text)
                 SoftButton:
                     text: "FILTER"
