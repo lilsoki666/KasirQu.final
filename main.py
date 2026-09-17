@@ -2518,8 +2518,19 @@ class POSScreen(Screen):
         if method == "QRIS":
             qris_path = self.app.resolve_image(self.app.db.setting("qris_image"))
             if qris_path:
-                qr_card = Card(orientation="vertical", size_hint_y=None, height=dp(150), padding=dp(8))
-                qr = Image(source=qris_path, allow_stretch=True, keep_ratio=True)
+                # QRIS dibuat besar agar mudah dipindai dari layar kasir.
+                qr_card = Card(
+                    orientation="vertical",
+                    size_hint_y=None,
+                    height=dp(300),
+                    padding=dp(10)
+                )
+                qr = Image(
+                    source=qris_path,
+                    allow_stretch=True,
+                    keep_ratio=True,
+                    size_hint=(1, 1)
+                )
                 qr.reload()
                 qr_card.add_widget(qr)
                 content.add_widget(qr_card)
@@ -2563,14 +2574,23 @@ class POSScreen(Screen):
         buttons.add_widget(confirm)
         content.add_widget(buttons)
 
+        # Popup konfirmasi dibuat lebar dan tinggi agar QRIS dapat ditampilkan
+        # dengan ukuran yang nyaman untuk dipindai, sekaligus tetap responsif
+        # pada layar HP yang berbeda.
         popup = style_popup(Popup(
             title="Pembayaran",
             content=content,
-            size_hint=(None, None),
-            size=(dp(410), dp(390 if method == "QRIS" else 330))
+            size_hint=(0.94, 0.88) if method == "QRIS" else (0.92, None),
+            size=(dp(410), dp(420 if method == "QRIS" else 330))
         ))
-        fit_popup(popup, content, min_width=dp(320), max_width=dp(500),
-                  min_height=dp(300), max_height_ratio=0.86, extra_height=dp(70))
+        if method == "QRIS":
+            # Jangan mengecilkan popup QRIS kembali ke ukuran lama.
+            popup.size_hint = (0.94, 0.88)
+        else:
+            fit_popup(
+                popup, content, min_width=dp(320), max_width=dp(500),
+                min_height=dp(300), max_height_ratio=0.86, extra_height=dp(70)
+            )
         cancel.bind(on_release=popup.dismiss)
 
         def confirm_payment(*_):
