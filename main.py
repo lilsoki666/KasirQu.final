@@ -94,7 +94,7 @@ def printer_text(value):
     """Normalisasi teks struk ke ASCII agar printer ESC/POS tidak mencetak mojibake."""
     try:
         s = safe_text(value)
-        replacements = {"×":"x", "•":"-", "·":"-", "–":"-", "—":"-", "…":"...", "“":'"', "”":'"', "‘":"'", "’":"'"}
+        replacements = {"Ã—":"x", "â€¢":"-", "Â·":"-", "â€“":"-", "â€”":"-", "â€¦":"...", "â€œ":'"', "â€":'"', "â€˜":"'", "â€™":"'"}
         for src, dst in replacements.items():
             s = s.replace(src, dst)
         s = unicodedata.normalize("NFKD", s)
@@ -1006,7 +1006,7 @@ KV = r'''
                         text_size: self.size
                     Label:
                         text: "QRIS"
-                        color: TEXT
+                        color: (0.08, 0.11, 0.16, 1)
                         bold: True
                         font_size: "11sp"
                         size_hint_y: None
@@ -1059,7 +1059,7 @@ KV = r'''
                         foreground_color: (.08,.11,.16,1)
                     Label:
                         text: "TRANSFER BANK"
-                        color: TEXT
+                        color: (0.08, 0.11, 0.16, 1)
                         bold: True
                         font_size: "11sp"
                         size_hint_y: None
@@ -1095,7 +1095,7 @@ KV = r'''
                         background_color: (1,1,1,1)
                     Label:
                         text: "E-WALLET"
-                        color: TEXT
+                        color: (0.08, 0.11, 0.16, 1)
                         bold: True
                         font_size: "11sp"
                         size_hint_y: None
@@ -1209,7 +1209,7 @@ KV = r'''
                     Label:
                         id: printer_status
                         text: "Printer: belum dipilih"
-                        color: TEXT
+                        color: (0.08, 0.11, 0.16, 1)
                         font_size: "10sp"
                         size_hint_y: None
                         height: dp(32)
@@ -2524,7 +2524,7 @@ class POSScreen(Screen):
                 qr_card.add_widget(qr)
                 content.add_widget(qr_card)
             else:
-                content.add_widget(text_label("QRIS belum diatur. Masuk ke Pengaturan → Pembayaran → Pilih QRIS.", size=12, halign="center"))
+                content.add_widget(text_label("QRIS belum diatur. Masuk ke Pengaturan â†’ Pembayaran â†’ Pilih QRIS.", size=12, halign="center"))
             instruction = self.app.db.setting("qris_instruction") or "Scan QRIS lalu lakukan pembayaran sesuai total."
             content.add_widget(text_label(instruction, size=12, halign="center"))
 
