@@ -25,7 +25,7 @@ from kivy.uix.spinner import Spinner
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.widget import Widget
 from kivy.uix.anchorlayout import AnchorLayout
-from kivy.graphics import Color, RoundedRectangle, Line
+from kivy.graphics import Color, RoundedRectangle
 from kivy.clock import Clock
 from kivy.utils import platform
 
@@ -94,7 +94,7 @@ def printer_text(value):
     """Normalisasi teks struk ke ASCII agar printer ESC/POS tidak mencetak mojibake."""
     try:
         s = safe_text(value)
-        replacements = {"×":"x", "•":"-", "·":"-", "–":"-", "—":"-", "…":"...", "“":'"', "”":'"', "‘":"'", "’":"'"}
+        replacements = {"Ã—":"x", "â€¢":"-", "Â·":"-", "â€“":"-", "â€”":"-", "â€¦":"...", "â€œ":'"', "â€":'"', "â€˜":"'", "â€™":"'"}
         for src, dst in replacements.items():
             s = s.replace(src, dst)
         s = unicodedata.normalize("NFKD", s)
@@ -197,11 +197,11 @@ class ModernButton(Button):
 # ============================================================
 
 class IconNavButton(BoxLayout):
-    """Toolbar item yang aman untuk Kivy/Android.
+    """Navigasi bawah minimalis tanpa ikon.
 
-    Tidak memakai ButtonBehavior karena kombinasi ButtonBehavior + BoxLayout
-    dapat memicu error konstruktor pada beberapa versi Kivy:
-    ButtonBehavior._init_() got multiple values for keyword argument.
+    Nama class dipertahankan agar tidak mengganggu referensi KV lama,
+    tetapi toolbar sekarang hanya menampilkan teks dan garis indikator
+    tipis di bagian atas item aktif.
     """
 
     nav_name = StringProperty("")
@@ -211,86 +211,53 @@ class IconNavButton(BoxLayout):
 
     def __init__(self, **kwargs):
         super().__init__(orientation="vertical", **kwargs)
-        self.spacing = dp(2)
+        self.spacing = 0
         self.size_hint_y = None
-        self.height = dp(66)
-        self.padding = [dp(4), dp(4), dp(4), dp(4)]
+        self.height = dp(58)
+        self.padding = [dp(4), 0, dp(4), 0]
         self.size_hint_x = 1
         self._touch_start = None
 
-        self.icon = Image(
-            source="",
-            size_hint=(1, None),
-            height=dp(38),
-            allow_stretch=True,
-            keep_ratio=True
-        )
         self.label = Label(
             text="",
-            font_size="10sp",
+            font_size="12sp",
             bold=True,
             color=MUTED,
-            size_hint=(1, None),
-            height=dp(20),
+            size_hint=(1, 1),
             halign="center",
             valign="middle"
         )
         self.label.bind(size=lambda w, v: setattr(w, "text_size", v))
-
-        self.add_widget(self.icon)
         self.add_widget(self.label)
 
         with self.canvas.before:
-            Color(1, 1, 1, 1)
-            self._nav_bg = RoundedRectangle(
-                pos=self.pos, size=self.size, radius=[dp(10)]
-            )
-            self._nav_color = Color(0.12, 0.32, 0.78, 0)
-            self._nav_border_color = Color(0.12, 0.32, 0.78, 0)
-            from kivy.graphics import Line
-            self._nav_border = Line(
-                rounded_rectangle=(self.x, self.y, self.width, self.height, dp(10)),
-                width=dp(1.5)
+            Color(0.12, 0.32, 0.78, 0)
+            from kivy.graphics import Rectangle
+            self._active_line = Rectangle(
+                pos=(self.x, self.top - dp(3)),
+                size=(self.width, dp(3))
             )
 
-        self.bind(pos=self._update_bg, size=self._update_bg)
-        self.bind(label_text=self._sync_label_text, icon_path=self._sync_icon)
-        self.bind(is_active=self._sync_active)
+        self.bind(pos=self._update_line, size=self._update_line)
+        self.bind(label_text=self._sync_label_text, is_active=self._sync_active)
         Clock.schedule_once(self._sync_widgets, 0)
 
     def _sync_label_text(self, *_):
         self.label.text = self.label_text
 
-    def _sync_icon(self, *_):
-        self.icon.source = self.icon_path or ""
-        try:
-            self.icon.reload()
-        except Exception:
-            pass
-
     def _sync_widgets(self, *_):
         self._sync_label_text()
-        self._sync_icon()
-        self._update_bg()
+        self._update_line()
         self._sync_active()
 
-    def _update_bg(self, *_):
-        self._nav_bg.pos = self.pos
-        self._nav_bg.size = self.size
-        self._nav_border.rounded_rectangle = (
-            self.x, self.y, self.width, self.height, dp(10)
-        )
+    def _update_line(self, *_):
+        self._active_line.pos = (self.x, self.top - dp(3))
+        self._active_line.size = (self.width, dp(3))
 
     def _sync_active(self, *_):
-        self._nav_border.rounded_rectangle = (
-            self.x, self.y, self.width, self.height, dp(10)
-        )
-        self._nav_color.rgba = (
-            0.12, 0.32, 0.78, 0.08 if self.is_active else 0
-        )
-        self._nav_border_color.rgba = (
-            0.12, 0.32, 0.78, 0.95 if self.is_active else 0
-        )
+        self._active_line.pos = (self.x, self.top - dp(3))
+        self._active_line.size = (self.width, dp(3))
+        self._active_line.a = 1 if self.is_active else 0
         self.label.color = PRIMARY if self.is_active else MUTED
 
     def on_touch_down(self, touch):
@@ -398,86 +365,44 @@ KV = r'''
 
 
 <PrimaryButton@Button>:
+
     background_normal: ""
+
     background_down: ""
-    background_color: (.08,.24,.62,1) if self.state == "down" else (.12,.32,.78,1)
+
+    background_color:
+        (.08,.24,.62,1) if self.state == "down" else (.12,.32,.78,1)
+
     color: 1,1,1,1
+
     bold: True
-    font_size: "13sp"
+
+    font_size: "14sp"
+
     size_hint_y: None
-    height: dp(44)
-    padding: [dp(14), 0]
-    canvas.before:
-        Color:
-            rgba: self.background_color
-        RoundedRectangle:
-            pos: self.pos
-            size: self.size
-            radius: [dp(10)]
+
+    height: dp(46)
+
 
 <SoftButton@Button>:
+
     background_normal: ""
+
     background_down: ""
-    background_color: (.90,.93,.98,1) if self.state == "down" else (1,1,1,1)
+
+    background_color:
+        (.88,.91,.96,1) if self.state == "down" else (1,1,1,1)
+
     color: (.08,.11,.16,1)
+
     bold: True
-    font_size: "12sp"
+
+    font_size: "13sp"
+
     size_hint_y: None
+
     height: dp(44)
-    canvas.before:
-        Color:
-            rgba: self.background_color
-        RoundedRectangle:
-            pos: self.pos
-            size: self.size
-            radius: [dp(10)]
-        Color:
-            rgba: (.87,.89,.93,1)
-        Line:
-            rounded_rectangle: (self.x,self.y,self.width,self.height,dp(10))
-            width: 1
 
-<ModernInput@TextInput>:
-    multiline: False
-    padding: [dp(13), dp(10)]
-    background_normal: ""
-    background_color: 0,0,0,0
-    foreground_color: (.08,.11,.16,1)
-    hint_text_color: (.52,.56,.63,1)
-    cursor_color: (.12,.32,.78,1)
-    font_size: "13sp"
-    canvas.before:
-        Color:
-            rgba: (1,1,1,1)
-        RoundedRectangle:
-            pos: self.pos
-            size: self.size
-            radius: [dp(11)]
-        Color:
-            rgba: (.12,.32,.78,1) if self.focus else (.89,.91,.95,1)
-        Line:
-            rounded_rectangle: (self.x,self.y,self.width,self.height,dp(11))
-            width: 1.1 if self.focus else 1
-
-<Spinner>:
-    background_normal: ""
-    background_down: ""
-    background_color: (1,1,1,1)
-    color: (.08,.11,.16,1)
-    font_size: "13sp"
-    bold: True
-    canvas.before:
-        Color:
-            rgba: (1,1,1,1)
-        RoundedRectangle:
-            pos: self.pos
-            size: self.size
-            radius: [dp(10)]
-        Color:
-            rgba: (.89,.91,.95,1)
-        Line:
-            rounded_rectangle: (self.x,self.y,self.width,self.height,dp(10))
-            width: 1
 
 <ScreenTitle@Label>:
 
@@ -524,15 +449,15 @@ KV = r'''
         spacing: 0
         canvas.before:
             Color:
-                rgba: (.965,.972,.985,1)
+                rgba: (.95,.97,.99,1)
             Rectangle:
                 pos: self.pos
                 size: self.size
 
         BoxLayout:
             size_hint_y: None
-            height: dp(60)
-            padding: [dp(17), 0, dp(14), 0]
+            height: dp(56)
+            padding: [dp(16), 0, dp(10), 0]
             canvas.before:
                 Color:
                     rgba: (.10,.31,.76,1)
@@ -581,7 +506,7 @@ KV = r'''
                 size_hint_y: None
                 height: dp(46)
                 spacing: dp(7)
-                ModernInput:
+                TextInput:
                     id: search
                     hint_text: "Cari produk / scan barcode..."
                     multiline: False
@@ -614,8 +539,8 @@ KV = r'''
                 GridLayout:
                     id: products
                     cols: 4
-                    spacing: dp(9)
-                    padding: [dp(1), dp(1), dp(1), dp(5)]
+                    spacing: dp(8)
+                    padding: dp(1)
                     size_hint_y: None
                     height: self.minimum_height
 
@@ -656,15 +581,15 @@ KV = r'''
         spacing: 0
         canvas.before:
             Color:
-                rgba: (.965,.972,.985,1)
+                rgba: (.95,.97,.99,1)
             Rectangle:
                 pos: self.pos
                 size: self.size
 
         BoxLayout:
             size_hint_y: None
-            height: dp(60)
-            padding: [dp(17), 0, dp(14), 0]
+            height: dp(56)
+            padding: [dp(16), 0, dp(10), 0]
             canvas.before:
                 Color:
                     rgba: (.10,.31,.76,1)
@@ -692,7 +617,7 @@ KV = r'''
 
         BoxLayout:
             orientation: "vertical"
-            padding: [dp(14), dp(12), dp(14), dp(10)]
+            padding: [dp(12), dp(9), dp(12), dp(8)]
             spacing: dp(8)
 
             BoxLayout:
@@ -717,7 +642,7 @@ KV = r'''
                 size_hint_y: None
                 height: dp(44)
                 spacing: dp(7)
-                ModernInput:
+                TextInput:
                     id: search
                     hint_text: "Cari produk, SKU, kategori..."
                     multiline: False
@@ -753,8 +678,8 @@ KV = r'''
                 GridLayout:
                     id: list
                     cols: 1
-                    spacing: dp(9)
-                    padding: [dp(1), dp(1), dp(1), dp(5)]
+                    spacing: dp(8)
+                    padding: dp(1)
                     size_hint_y: None
                     height: self.minimum_height
 
@@ -765,15 +690,15 @@ KV = r'''
         spacing: 0
         canvas.before:
             Color:
-                rgba: (.965,.972,.985,1)
+                rgba: (.95,.97,.99,1)
             Rectangle:
                 pos: self.pos
                 size: self.size
 
         BoxLayout:
             size_hint_y: None
-            height: dp(60)
-            padding: [dp(17), 0, dp(14), 0]
+            height: dp(56)
+            padding: [dp(16), 0, dp(10), 0]
             canvas.before:
                 Color:
                     rgba: (.10,.31,.76,1)
@@ -801,7 +726,7 @@ KV = r'''
 
         BoxLayout:
             orientation: "vertical"
-            padding: [dp(14), dp(12), dp(14), dp(10)]
+            padding: [dp(12), dp(9), dp(12), dp(8)]
             spacing: dp(8)
 
             BoxLayout:
@@ -826,7 +751,7 @@ KV = r'''
                 size_hint_y: None
                 height: dp(44)
                 spacing: dp(7)
-                ModernInput:
+                TextInput:
                     id: search
                     hint_text: "Cari invoice / pembayaran..."
                     multiline: False
@@ -848,8 +773,8 @@ KV = r'''
                 GridLayout:
                     id: list
                     cols: 1
-                    spacing: dp(9)
-                    padding: [dp(1), dp(1), dp(1), dp(5)]
+                    spacing: dp(8)
+                    padding: dp(1)
                     size_hint_y: None
                     height: self.minimum_height
 
@@ -868,7 +793,7 @@ KV = r'''
 
             Color:
 
-                rgba: (.965,.972,.985,1)
+                rgba: (.95,.97,.99,1)
 
             Rectangle:
 
@@ -938,7 +863,7 @@ KV = r'''
 
             Color:
 
-                rgba: (.965,.972,.985,1)
+                rgba: (.95,.97,.99,1)
 
             Rectangle:
 
@@ -981,6 +906,75 @@ KV = r'''
 
                     size_hint_y: None
 
+                    height: dp(158)
+
+                    padding: dp(12)
+
+                    spacing: dp(8)
+
+                    Label:
+
+                        text: "MENU LAINNYA"
+
+                        color: (.40,.44,.51,1)
+
+                        bold: True
+
+                        font_size: "13sp"
+
+                        size_hint_y: None
+
+                        height: dp(24)
+
+                        halign: "left"
+
+                        text_size: self.size
+
+                    BoxLayout:
+
+                        size_hint_y: None
+
+                        height: dp(52)
+
+                        spacing: dp(8)
+
+                        SoftButton:
+
+                            text: "RIWAYAT TRANSAKSI"
+
+                            on_release: root.open_transactions()
+
+                        SoftButton:
+
+                            text: "LAPORAN"
+
+                            on_release: root.open_reports()
+
+                    Label:
+
+                        text: "Akses riwayat transaksi dan laporan tanpa memenuhi toolbar."
+
+                        color: (.40,.44,.51,1)
+
+                        font_size: "11sp"
+
+                        size_hint_y: None
+
+                        height: dp(30)
+
+                        halign: "left"
+
+                        valign: "middle"
+
+                        text_size: self.size
+
+
+                Card:
+
+                    orientation: "vertical"
+
+                    size_hint_y: None
+
                     height: dp(360)
 
                     padding: dp(12)
@@ -1006,7 +1000,7 @@ KV = r'''
                         text_size: self.size
 
 
-                    ModernInput:
+                    TextInput:
 
                         id: store
 
@@ -1027,7 +1021,7 @@ KV = r'''
                         foreground_color: (.08,.11,.16,1)
 
 
-                    ModernInput:
+                    TextInput:
 
                         id: address
 
@@ -1048,7 +1042,7 @@ KV = r'''
                         foreground_color: (.08,.11,.16,1)
 
 
-                    ModernInput:
+                    TextInput:
 
                         id: footer
 
@@ -1174,7 +1168,7 @@ KV = r'''
                         text_size: self.size
 
 
-                    ModernInput:
+                    TextInput:
 
                         id: cashier
 
@@ -1214,7 +1208,7 @@ KV = r'''
 
                         spacing: dp(8)
 
-                        ModernInput:
+                        TextInput:
 
                             id: tax
 
@@ -1231,7 +1225,7 @@ KV = r'''
                             background_color: (1,1,1,1)
 
 
-                        ModernInput:
+                        TextInput:
 
                             id: low_stock
 
@@ -1472,12 +1466,11 @@ BoxLayout:
 
         size_hint_y: None
 
-        height: dp(76)
+        height: dp(60)
 
-        padding: dp(5)
+        padding: [dp(8), 0, dp(8), 0]
 
-        spacing: dp(3)
-
+        spacing: dp(4)
 
         canvas.before:
 
@@ -1498,39 +1491,17 @@ BoxLayout:
 
             label_text: "Kasir"
 
-            icon_path: app.asset_path("assets/icons/kasir.png")
-
         IconNavButton:
 
             nav_name: "products"
 
             label_text: "Produk"
 
-            icon_path: app.asset_path("assets/icons/produk.png")
-
-        IconNavButton:
-
-            nav_name: "transactions"
-
-            label_text: "Riwayat"
-
-            icon_path: app.asset_path("assets/icons/riwayat.png")
-
-        IconNavButton:
-
-            nav_name: "reports"
-
-            label_text: "Laporan"
-
-            icon_path: app.asset_path("assets/icons/laporan.png")
-
         IconNavButton:
 
             nav_name: "settings"
 
             label_text: "Pengaturan"
-
-            icon_path: app.asset_path("assets/icons/pengaturan.png")
 '''
 
 
@@ -2064,28 +2035,7 @@ def make_button(
     )
 
     button.bold = True
-    button.padding = [dp(10), 0]
 
-    # Subtle rounded treatment for dynamically created buttons
-    # (categories, editor dialogs, checkout controls) without changing callbacks.
-    with button.canvas.before:
-        bg_color = Color(*button.background_color)
-        bg_rect = RoundedRectangle(
-            pos=button.pos, size=button.size, radius=[dp(10)]
-        )
-        border_color = Color(*BORDER)
-        border = Line(
-            rounded_rectangle=(button.x, button.y, button.width, button.height, dp(10)),
-            width=0.9
-        )
-
-    def sync(*_):
-        bg_color.rgba = button.background_color
-        bg_rect.pos = button.pos
-        bg_rect.size = button.size
-        border.rounded_rectangle = (button.x, button.y, button.width, button.height, dp(10))
-
-    button.bind(pos=sync, size=sync, background_color=sync)
     return button
 
 
@@ -3578,6 +3528,18 @@ class SettingsScreen(Screen):
                 "SETTINGS_LOAD",
                 error
             )
+
+    def open_transactions(self):
+        try:
+            self.app.navigate("transactions")
+        except Exception as error:
+            self.app.log_error("SETTINGS_OPEN_TRANSACTIONS", error)
+
+    def open_reports(self):
+        try:
+            self.app.navigate("reports")
+        except Exception as error:
+            self.app.log_error("SETTINGS_OPEN_REPORTS", error)
 
     def open_printer(self):
         try:
