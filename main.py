@@ -326,32 +326,27 @@ class SwipeManager(ScreenManager):
         return result
 
     def swipe(self, delta):
-
-        names = list(self.screen_names)
+        # Swipe hanya berlaku untuk 3 halaman utama.
+        # Riwayat Transaksi dan Laporan tetap tersedia dari Pengaturan,
+        # tetapi tidak ikut dalam urutan swipe/bottom navigation.
+        names = ["pos", "products", "settings"]
 
         if self.current not in names:
             return
 
         index = names.index(self.current)
-
         target = index + delta
 
         if target < 0 or target >= len(names):
             return
 
         self.transition = SlideTransition(
-            direction=(
-                "right"
-                if delta < 0
-                else "left"
-            ),
+            direction=("right" if delta < 0 else "left"),
             duration=.20
         )
-
         self.current = names[target]
         try:
-            app = App.get_running_app()
-            app.refresh_nav_highlight()
+            App.get_running_app().refresh_nav_highlight()
         except Exception:
             pass
 
@@ -850,582 +845,421 @@ KV = r'''
 
 
 <SettingsScreen>:
-
     BoxLayout:
-
         orientation: "vertical"
-
-        padding: dp(12)
-
+        padding: [dp(12), dp(8), dp(12), 0]
         spacing: dp(8)
-
         canvas.before:
-
             Color:
-
                 rgba: (.95,.97,.99,1)
-
             Rectangle:
-
                 pos: self.pos
-
                 size: self.size
 
-
         ScreenTitle:
-
             text: "Pengaturan"
-
             size_hint_y: None
-
             height: dp(48)
 
-
         ScrollView:
-
             do_scroll_x: False
-
             bar_width: dp(3)
-
             BoxLayout:
-
                 orientation: "vertical"
-
                 spacing: dp(10)
-
-                padding: [dp(2), 0, dp(5), dp(12)]
-
+                padding: [0, 0, dp(5), dp(16)]
                 size_hint_y: None
-
                 height: self.minimum_height
 
-
                 Card:
-
                     orientation: "vertical"
-
                     size_hint_y: None
-
-                    height: dp(158)
-
+                    height: dp(142)
                     padding: dp(12)
-
                     spacing: dp(8)
-
                     Label:
-
                         text: "MENU LAINNYA"
-
                         color: (.40,.44,.51,1)
-
                         bold: True
-
                         font_size: "13sp"
-
                         size_hint_y: None
-
-                        height: dp(24)
-
+                        height: dp(22)
                         halign: "left"
-
                         text_size: self.size
-
                     BoxLayout:
-
                         size_hint_y: None
-
-                        height: dp(52)
-
+                        height: dp(46)
                         spacing: dp(8)
-
                         SoftButton:
-
                             text: "RIWAYAT TRANSAKSI"
-
                             on_release: root.open_transactions()
-
                         SoftButton:
-
                             text: "LAPORAN"
-
                             on_release: root.open_reports()
-
                     Label:
-
-                        text: "Akses riwayat transaksi dan laporan tanpa memenuhi toolbar."
-
+                        text: "Riwayat dan laporan hanya dibuka dari Pengaturan."
                         color: (.40,.44,.51,1)
-
-                        font_size: "11sp"
-
+                        font_size: "10sp"
                         size_hint_y: None
-
-                        height: dp(30)
-
+                        height: dp(24)
                         halign: "left"
-
                         valign: "middle"
-
                         text_size: self.size
-
 
                 Card:
-
                     orientation: "vertical"
-
                     size_hint_y: None
-
-                    height: dp(360)
-
-                    padding: dp(12)
-
-                    spacing: dp(8)
-
+                    height: dp(390)
+                    padding: dp(14)
+                    spacing: dp(7)
                     Label:
-
                         text: "TOKO & STRUK"
-
                         color: (.40,.44,.51,1)
-
                         bold: True
-
                         font_size: "13sp"
-
                         size_hint_y: None
-
-                        height: dp(24)
-
+                        height: dp(22)
                         halign: "left"
-
                         text_size: self.size
-
-
                     TextInput:
-
                         id: store
-
                         hint_text: "Nama usaha"
-
                         multiline: False
-
                         size_hint_y: None
-
-                        height: dp(44)
-
-                        padding: [dp(12),dp(10)]
-
+                        height: dp(42)
+                        padding: [dp(12), dp(9)]
                         background_normal: ""
-
                         background_color: (1,1,1,1)
-
                         foreground_color: (.08,.11,.16,1)
-
-
+                        cursor_color: (.12,.32,.78,1)
                     TextInput:
-
                         id: address
-
                         hint_text: "Alamat / kontak"
-
                         multiline: False
-
                         size_hint_y: None
-
-                        height: dp(44)
-
-                        padding: [dp(12),dp(10)]
-
+                        height: dp(42)
+                        padding: [dp(12), dp(9)]
                         background_normal: ""
-
                         background_color: (1,1,1,1)
-
                         foreground_color: (.08,.11,.16,1)
-
-
+                        cursor_color: (.12,.32,.78,1)
                     TextInput:
-
                         id: footer
-
                         hint_text: "Footer struk"
-
                         multiline: False
-
                         size_hint_y: None
-
-                        height: dp(44)
-
-                        padding: [dp(12),dp(10)]
-
+                        height: dp(42)
+                        padding: [dp(12), dp(9)]
                         background_normal: ""
-
                         background_color: (1,1,1,1)
-
                         foreground_color: (.08,.11,.16,1)
-
-
+                        cursor_color: (.12,.32,.78,1)
                     BoxLayout:
-
                         size_hint_y: None
-
-                        height: dp(104)
-
+                        height: dp(96)
                         spacing: dp(10)
-
-
                         Card:
-
                             size_hint_x: None
-
-                            width: dp(94)
-
+                            width: dp(88)
                             padding: dp(6)
-
                             Image:
-
                                 id: receipt_logo_preview
-
                                 source: ""
-
                                 allow_stretch: True
-
                                 keep_ratio: True
-
-
                         BoxLayout:
-
                             orientation: "vertical"
-
                             spacing: dp(5)
-
-
                             Label:
-
                                 id: logo_status
-
                                 text: "Logo struk: belum dipilih"
-
                                 color: (.25,.29,.36,1)
-
-                                font_size: "11sp"
-
+                                font_size: "10sp"
                                 halign: "left"
-
                                 valign: "middle"
-
                                 text_size: self.size
-
-
                             BoxLayout:
-
                                 size_hint_y: None
-
-                                height: dp(40)
-
+                                height: dp(38)
                                 spacing: dp(6)
-
                                 SoftButton:
-
                                     text: "PILIH LOGO"
-
                                     on_release: root.choose_receipt_logo()
-
                                 SoftButton:
-
                                     text: "HAPUS"
-
                                     on_release: root.remove_receipt_logo()
 
-
                 Card:
-
                     orientation: "vertical"
-
                     size_hint_y: None
-
-                    height: dp(310)
-
-                    padding: dp(12)
-
-                    spacing: dp(8)
-
-
+                    height: dp(475)
+                    padding: dp(14)
+                    spacing: dp(7)
                     Label:
-
-                        text: "OPERASIONAL"
-
+                        text: "PEMBAYARAN"
                         color: (.40,.44,.51,1)
-
                         bold: True
-
                         font_size: "13sp"
-
                         size_hint_y: None
-
-                        height: dp(24)
-
+                        height: dp(22)
                         halign: "left"
-
                         text_size: self.size
-
-
-                    TextInput:
-
-                        id: cashier
-
-                        hint_text: "Nama kasir"
-
-                        multiline: False
-
+                    Label:
+                        text: "QRIS"
+                        color: TEXT
+                        bold: True
+                        font_size: "11sp"
                         size_hint_y: None
-
-                        height: dp(44)
-
-                        padding: [dp(12),dp(10)]
-
-                        background_normal: ""
-
-                        background_color: (1,1,1,1)
-
-
-                    Spinner:
-
-                        id: role
-
-                        text: "Owner"
-
-                        values: ["Owner","Admin","Kasir"]
-
-                        size_hint_y: None
-
-                        height: dp(44)
-
-
+                        height: dp(20)
+                        halign: "left"
+                        text_size: self.size
                     BoxLayout:
-
                         size_hint_y: None
-
-                        height: dp(44)
-
+                        height: dp(82)
                         spacing: dp(8)
-
-                        TextInput:
-
-                            id: tax
-
-                            hint_text: "Pajak (%)"
-
-                            input_filter: "float"
-
-                            multiline: False
-
-                            padding: [dp(12),dp(10)]
-
-                            background_normal: ""
-
-                            background_color: (1,1,1,1)
-
-
-                        TextInput:
-
-                            id: low_stock
-
-                            hint_text: "Batas stok menipis"
-
-                            input_filter: "float"
-
-                            multiline: False
-
-                            padding: [dp(12),dp(10)]
-
-                            background_normal: ""
-
-                            background_color: (1,1,1,1)
-
-
-                    BoxLayout:
-
-                        size_hint_y: None
-
-                        height: dp(44)
-
-                        spacing: dp(8)
-
-                        Label:
-
-                            text: "Ukuran kertas"
-
-                            color: (.25,.29,.36,1)
-
-                            halign: "left"
-
-                            valign: "middle"
-
-                            text_size: self.size
-
-
-                        Spinner:
-
-                            id: paper
-
-                            text: "58mm"
-
-                            values: ["58mm","80mm"]
-
+                        Card:
                             size_hint_x: None
-
-                            width: dp(130)
-
+                            width: dp(78)
+                            padding: dp(5)
+                            Image:
+                                id: qris_preview
+                                source: ""
+                                allow_stretch: True
+                                keep_ratio: True
+                        BoxLayout:
+                            orientation: "vertical"
+                            spacing: dp(5)
+                            Label:
+                                id: qris_status
+                                text: "QRIS: belum dipilih"
+                                color: MUTED
+                                font_size: "10sp"
+                                halign: "left"
+                                valign: "middle"
+                                text_size: self.size
+                            BoxLayout:
+                                size_hint_y: None
+                                height: dp(38)
+                                spacing: dp(6)
+                                SoftButton:
+                                    text: "PILIH QRIS"
+                                    on_release: root.choose_qris()
+                                SoftButton:
+                                    text: "HAPUS"
+                                    on_release: root.remove_qris()
+                    TextInput:
+                        id: qris_instruction
+                        hint_text: "Teks instruksi QRIS"
+                        multiline: False
+                        size_hint_y: None
+                        height: dp(42)
+                        padding: [dp(12), dp(9)]
+                        background_normal: ""
+                        background_color: (1,1,1,1)
+                        foreground_color: (.08,.11,.16,1)
+                    Label:
+                        text: "TRANSFER BANK"
+                        color: TEXT
+                        bold: True
+                        font_size: "11sp"
+                        size_hint_y: None
+                        height: dp(20)
+                        halign: "left"
+                        text_size: self.size
+                    BoxLayout:
+                        size_hint_y: None
+                        height: dp(42)
+                        spacing: dp(7)
+                        TextInput:
+                            id: bank_name
+                            hint_text: "Nama bank"
+                            multiline: False
+                            padding: [dp(10),dp(8)]
+                            background_normal: ""
+                            background_color: (1,1,1,1)
+                        TextInput:
+                            id: bank_account
+                            hint_text: "Nomor rekening"
+                            multiline: False
+                            padding: [dp(10),dp(8)]
+                            background_normal: ""
+                            background_color: (1,1,1,1)
+                    TextInput:
+                        id: bank_holder
+                        hint_text: "Atas nama"
+                        multiline: False
+                        size_hint_y: None
+                        height: dp(42)
+                        padding: [dp(10),dp(8)]
+                        background_normal: ""
+                        background_color: (1,1,1,1)
+                    Label:
+                        text: "E-WALLET"
+                        color: TEXT
+                        bold: True
+                        font_size: "11sp"
+                        size_hint_y: None
+                        height: dp(20)
+                        halign: "left"
+                        text_size: self.size
+                    BoxLayout:
+                        size_hint_y: None
+                        height: dp(42)
+                        spacing: dp(7)
+                        TextInput:
+                            id: ewallet_name
+                            hint_text: "Nama e-wallet"
+                            multiline: False
+                            padding: [dp(10),dp(8)]
+                            background_normal: ""
+                            background_color: (1,1,1,1)
+                        TextInput:
+                            id: ewallet_number
+                            hint_text: "Nomor HP / akun"
+                            multiline: False
+                            padding: [dp(10),dp(8)]
+                            background_normal: ""
+                            background_color: (1,1,1,1)
 
                 Card:
-
                     orientation: "vertical"
-
                     size_hint_y: None
-
-                    height: dp(292)
-
-                    padding: dp(12)
-
-                    spacing: dp(8)
-
-
+                    height: dp(310)
+                    padding: dp(14)
+                    spacing: dp(7)
                     Label:
-
-                        text: "PRINTER THERMAL"
-
+                        text: "OPERASIONAL"
                         color: (.40,.44,.51,1)
-
                         bold: True
-
                         font_size: "13sp"
-
                         size_hint_y: None
-
-                        height: dp(24)
-
+                        height: dp(22)
                         halign: "left"
-
                         text_size: self.size
-
-
-                    Label:
-
-                        id: printer_status
-
-                        text: "Printer: belum dipilih"
-
-                        color: (.08,.11,.16,1)
-
+                    TextInput:
+                        id: cashier
+                        hint_text: "Nama kasir"
+                        multiline: False
                         size_hint_y: None
-
-                        height: dp(40)
-
-                        halign: "center"
-
-                        valign: "middle"
-
-                        text_size: self.size
-
-
+                        height: dp(42)
+                        padding: [dp(12),dp(9)]
+                        background_normal: ""
+                        background_color: (1,1,1,1)
+                    Spinner:
+                        id: role
+                        text: "Owner"
+                        values: ["Owner","Admin","Kasir"]
+                        size_hint_y: None
+                        height: dp(42)
+                    BoxLayout:
+                        size_hint_y: None
+                        height: dp(42)
+                        spacing: dp(8)
+                        TextInput:
+                            id: tax
+                            hint_text: "Pajak (%)"
+                            input_filter: "float"
+                            multiline: False
+                            padding: [dp(10),dp(8)]
+                            background_normal: ""
+                            background_color: (1,1,1,1)
+                        TextInput:
+                            id: low_stock
+                            hint_text: "Batas stok menipis"
+                            input_filter: "float"
+                            multiline: False
+                            padding: [dp(10),dp(8)]
+                            background_normal: ""
+                            background_color: (1,1,1,1)
+                    BoxLayout:
+                        size_hint_y: None
+                        height: dp(42)
+                        spacing: dp(8)
+                        Label:
+                            text: "Ukuran kertas"
+                            color: (.25,.29,.36,1)
+                            halign: "left"
+                            valign: "middle"
+                            text_size: self.size
+                        Spinner:
+                            id: paper
+                            text: "58mm"
+                            values: ["58mm","80mm"]
+                            size_hint_x: None
+                            width: dp(110)
                     PrimaryButton:
-
-                        text: "PILIH PRINTER BLUETOOTH"
-
-                        on_release: root.open_printer()
-
-
-                    SoftButton:
-
-                        text: "TEST PRINT"
-
-                        on_release: root.test_printer()
-
-
-                    PrimaryButton:
-
                         text: "SIMPAN PENGATURAN"
-
                         on_release: root.save()
 
-
+                Card:
+                    orientation: "vertical"
+                    size_hint_y: None
+                    height: dp(245)
+                    padding: dp(14)
+                    spacing: dp(7)
                     Label:
-
-                        text: "Printer dipilih satu kali di sini dan digunakan kembali untuk transaksi serta cetak ulang."
-
+                        text: "PRINTER THERMAL"
                         color: (.40,.44,.51,1)
-
-                        font_size: "11sp"
-
+                        bold: True
+                        font_size: "13sp"
                         size_hint_y: None
-
-                        height: dp(42)
-
+                        height: dp(22)
+                        halign: "left"
+                        text_size: self.size
+                    Label:
+                        id: printer_status
+                        text: "Printer: belum dipilih"
+                        color: TEXT
+                        font_size: "10sp"
+                        size_hint_y: None
+                        height: dp(32)
                         halign: "center"
-
                         valign: "middle"
-
+                        text_size: self.size
+                    PrimaryButton:
+                        text: "PILIH PRINTER BLUETOOTH"
+                        on_release: root.open_printer()
+                    SoftButton:
+                        text: "TEST PRINT"
+                        on_release: root.test_printer()
+                    Label:
+                        text: "Printer dipilih sekali di sini dan digunakan untuk transaksi serta cetak ulang."
+                        color: MUTED
+                        font_size: "10sp"
+                        size_hint_y: None
+                        height: dp(36)
+                        halign: "center"
+                        valign: "middle"
                         text_size: self.width, None
 
-
                 Card:
-
                     orientation: "vertical"
-
                     size_hint_y: None
-
-                    height: dp(250)
-
-                    padding: dp(12)
-
+                    height: dp(180)
+                    padding: dp(14)
                     spacing: dp(7)
-
-
                     Label:
-
                         text: "DATA & KEAMANAN"
-
                         color: (.40,.44,.51,1)
-
                         bold: True
-
                         font_size: "13sp"
-
                         size_hint_y: None
-
-                        height: dp(24)
-
+                        height: dp(22)
                         halign: "left"
-
                         text_size: self.size
-
-
+                    BoxLayout:
+                        size_hint_y: None
+                        height: dp(42)
+                        spacing: dp(7)
+                        SoftButton:
+                            text: "BACKUP DATABASE"
+                            on_release: root.backup()
+                        SoftButton:
+                            text: "CEK DATABASE"
+                            on_release: root.check_database()
                     SoftButton:
-
-                        text: "BACKUP DATABASE"
-
-                        on_release: root.backup()
-
-
-                    SoftButton:
-
-                        text: "RESTORE BACKUP TERAKHIR"
-
-                        on_release: root.restore_backup()
-
-
-                    SoftButton:
-
-                        text: "CEK DATABASE"
-
-                        on_release: root.check_database()
-
-
-                    SoftButton:
-
                         text: "REFRESH DATA"
-
                         on_release: root.on_enter()
-
 
 BoxLayout:
 
@@ -1645,7 +1479,15 @@ class DB:
             "auto_backup": "1",
             "product_columns": "4",
             "printer_address": "",
-            "receipt_logo": ""
+            "receipt_logo": "",
+            # Pengaturan pembayaran untuk popup konfirmasi checkout.
+            "qris_instruction": "Scan QRIS lalu lakukan pembayaran sesuai total.",
+            "qris_image": "",
+            "bank_name": "",
+            "bank_account": "",
+            "bank_holder": "",
+            "ewallet_name": "Dana",
+            "ewallet_number": ""
         }
 
         for key, value in defaults.items():
@@ -2568,66 +2410,26 @@ class POSScreen(Screen):
         discount="0",
         tax=None
     ):
-
         if not self.cart_data:
             return
 
-        (
-            subtotal,
-            discount_value,
-            tax_value,
-            total
-        ) = self.calculate_total(
+        subtotal, discount_value, tax_value, total = self.calculate_total(
             discount,
             self.app.tax_percent if tax is None else tax
         )
 
-        content = BoxLayout(
-            orientation="vertical",
-            spacing=dp(9),
-            padding=dp(12)
-        )
-
-        total_card = Card(
-            orientation="vertical",
-            size_hint_y=None,
-            height=dp(82),
-            padding=dp(10)
-        )
-
-        total_card.add_widget(
-            Label(
-                text="TOTAL BELANJA",
-                color=MUTED,
-                font_size="12sp"
-            )
-        )
-
-        total_card.add_widget(
-            Label(
-                text=money(total),
-                color=PRIMARY,
-                font_size="24sp",
-                bold=True
-            )
-        )
-
+        content = BoxLayout(orientation="vertical", spacing=dp(9), padding=dp(12))
+        total_card = Card(orientation="vertical", size_hint_y=None, height=dp(82), padding=dp(10))
+        total_card.add_widget(Label(text="TOTAL BELANJA", color=MUTED, font_size="12sp"))
+        total_card.add_widget(Label(text=money(total), color=PRIMARY, font_size="24sp", bold=True))
         content.add_widget(total_card)
 
         method = Spinner(
             text="Tunai",
-            values=[
-                "Tunai",
-                "QRIS",
-                "Debit",
-                "Kredit",
-                "Transfer",
-                "E-Wallet"
-            ],
+            values=["Tunai", "QRIS", "Debit", "Kredit", "Transfer Bank", "E-Wallet"],
             size_hint_y=None,
             height=dp(44)
         )
-
         paid = TextInput(
             hint_text="Uang diterima",
             input_filter="float",
@@ -2636,73 +2438,30 @@ class POSScreen(Screen):
             height=dp(44),
             padding=[dp(12), dp(10)]
         )
-
-        change = Label(
-            text="Kembalian  Rp 0",
-            font_size="16sp",
-            bold=True,
-            size_hint_y=None,
-            height=dp(40),
-            color=SUCCESS
-        )
-
+        change = Label(text="Kembalian  Rp 0", font_size="16sp", bold=True,
+                       size_hint_y=None, height=dp(40), color=SUCCESS)
         content.add_widget(method)
         content.add_widget(paid)
         content.add_widget(change)
 
         def update(*_):
-
             if method.text == "Tunai":
-
                 paid.disabled = False
-
-                paid_value = safe_float(
-                    paid.text
-                )
-
-                change.text = (
-                    "Kembalian  "
-                    +
-                    money(
-                        max(
-                            0,
-                            paid_value - total
-                        )
-                    )
-                )
-
+                paid_value = safe_float(paid.text)
+                change.text = "Kembalian  " + money(max(0, paid_value - total))
             else:
-
                 paid.text = ""
                 paid.disabled = True
+                change.text = "Pembayaran akan dikonfirmasi"
 
-                change.text = (
-                    "Pembayaran non-tunai"
-                )
+        paid.bind(text=update)
+        method.bind(text=update)
 
-        paid.bind(
-            text=update
-        )
-
-        method.bind(
-            text=update
-        )
-
-        buttons = BoxLayout(
-            size_hint_y=None,
-            height=dp(46),
-            spacing=dp(7)
-        )
-
+        buttons = BoxLayout(size_hint_y=None, height=dp(46), spacing=dp(7))
         cancel = make_button("Batal")
-        done = make_button(
-            "SELESAIKAN TRANSAKSI",
-            primary=True
-        )
-
+        done = make_button("SELESAIKAN PESANAN", primary=True)
         buttons.add_widget(cancel)
         buttons.add_widget(done)
-
         content.add_widget(buttons)
 
         popup = style_popup(Popup(
@@ -2713,112 +2472,129 @@ class POSScreen(Screen):
         ))
         fit_popup(popup, content, min_width=dp(320), max_width=dp(480),
                   min_height=dp(330), max_height_ratio=0.84, extra_height=dp(62))
-
-        cancel.bind(
-            on_release=popup.dismiss
-        )
+        cancel.bind(on_release=popup.dismiss)
 
         def finish(*_):
-
-            paid_value = safe_float(
-                paid.text
-            )
-
-            if (
-                method.text == "Tunai"
-                and
-                paid_value < total
-            ):
-
-                self.app.notify(
-                    "Uang kurang "
-                    +
-                    money(
-                        total - paid_value
-                    )
-                )
-
+            paid_value = safe_float(paid.text)
+            if method.text == "Tunai" and paid_value < total:
+                self.app.notify("Uang kurang " + money(total - paid_value))
                 return
-
             if method.text != "Tunai":
                 paid_value = total
-
-            change_value = (
-                max(
-                    0,
-                    paid_value - total
-                )
-                if method.text == "Tunai"
-                else 0
+            change_value = max(0, paid_value - total) if method.text == "Tunai" else 0
+            cart_snapshot = [dict(item) for item in self.cart_data]
+            popup.dismiss()
+            Clock.schedule_once(
+                lambda *_dt: self.open_payment_confirmation(
+                    cart_snapshot, subtotal, discount_value, tax_value, total,
+                    method.text, paid_value, change_value
+                ), 0.08
             )
 
-            try:
-
-                cart_snapshot = [
-                    dict(item)
-                    for item in self.cart_data
-                ]
-
-                invoice = (
-                    self.app.db.create_sale(
-                        cart_snapshot,
-                        subtotal,
-                        discount_value,
-                        tax_value,
-                        total,
-                        method.text,
-                        paid_value,
-                        change_value
-                    )
-                )
-
-                self.app.last_receipt = (
-                    invoice,
-                    subtotal,
-                    discount_value,
-                    tax_value,
-                    total,
-                    method.text,
-                    paid_value,
-                    change_value,
-                    cart_snapshot
-                )
-
-                self.clear_cart()
-
-                popup.dismiss()
-
-                self.app.root.ids.sm.current = (
-                    "transactions"
-                )
-
-                self.app.notify(f"Transaksi {invoice} berhasil.")
-                self.app.auto_backup()
-
-                # Gunakan printer yang sudah disimpan di Pengaturan. Tidak perlu
-                # memilih perangkat Bluetooth lagi setelah setiap transaksi.
-                Clock.schedule_once(lambda *_: self.app.auto_print_saved_receipt(), 0.15)
-
-            except Exception as error:
-
-                self.app.log_error(
-                    "CHECKOUT",
-                    error
-                )
-
-                self.app.notify(
-                    "Transaksi gagal:\n"
-                    +
-                    str(error)
-                )
-
-        done.bind(
-            on_release=finish
-        )
-
+        done.bind(on_release=finish)
         popup.open()
-
         update()
+
+    def open_payment_confirmation(
+        self, cart_snapshot, subtotal, discount_value, tax_value,
+        total, method, paid_value, change_value
+    ):
+        """Popup kedua: pelanggan membayar dulu, lalu kasir mengonfirmasi."""
+        content = BoxLayout(orientation="vertical", spacing=dp(8), padding=dp(12))
+
+        heading = Label(
+            text=("KONFIRMASI PEMBAYARAN" if method != "Tunai" else "KONFIRMASI PESANAN"),
+            color=TEXT, bold=True, font_size="15sp", size_hint_y=None, height=dp(30)
+        )
+        content.add_widget(heading)
+        total_label = Label(
+            text=f"Total Pembayaran\n{money(total)}",
+            color=PRIMARY, bold=True, font_size="18sp", size_hint_y=None, height=dp(54),
+            halign="center", valign="middle"
+        )
+        total_label.bind(size=lambda w, v: setattr(w, "text_size", v))
+        content.add_widget(total_label)
+
+        if method == "QRIS":
+            qris_path = self.app.resolve_image(self.app.db.setting("qris_image"))
+            if qris_path:
+                qr_card = Card(orientation="vertical", size_hint_y=None, height=dp(150), padding=dp(8))
+                qr = Image(source=qris_path, allow_stretch=True, keep_ratio=True)
+                qr.reload()
+                qr_card.add_widget(qr)
+                content.add_widget(qr_card)
+            else:
+                content.add_widget(text_label("QRIS belum diatur. Masuk ke Pengaturan → Pembayaran → Pilih QRIS.", size=12, halign="center"))
+            instruction = self.app.db.setting("qris_instruction") or "Scan QRIS lalu lakukan pembayaran sesuai total."
+            content.add_widget(text_label(instruction, size=12, halign="center"))
+
+        elif method == "Transfer Bank":
+            bank = self.app.db.setting("bank_name") or "Bank belum diatur"
+            account = self.app.db.setting("bank_account") or "Nomor rekening belum diatur"
+            holder = self.app.db.setting("bank_holder") or "Atas nama belum diatur"
+            info = f"Bank\n{bank}\n\nNomor Rekening\n{account}\n\nAtas Nama\n{holder}"
+            content.add_widget(text_label(info, size=13, halign="center"))
+            content.add_widget(text_label("Setelah transfer diterima, tekan KONFIRMASI PEMBAYARAN.", size=11, halign="center"))
+
+        elif method == "E-Wallet":
+            wallet = self.app.db.setting("ewallet_name") or "E-Wallet"
+            number = self.app.db.setting("ewallet_number") or "Nomor belum diatur"
+            info = f"{wallet}\n{number}"
+            content.add_widget(text_label(info, size=16, halign="center"))
+            content.add_widget(text_label("Setelah pembayaran diterima, tekan KONFIRMASI PEMBAYARAN.", size=11, halign="center"))
+
+        elif method == "Tunai":
+            content.add_widget(text_label(
+                f"Uang diterima\n{money(paid_value)}\n\nKembalian\n{money(change_value)}",
+                size=14, halign="center"
+            ))
+            content.add_widget(text_label("Pastikan uang sudah diterima sebelum konfirmasi.", size=11, halign="center"))
+
+        else:
+            content.add_widget(text_label(
+                f"Metode: {method}\n\nPastikan pembayaran melalui mesin EDC sudah berhasil sebelum konfirmasi.",
+                size=12, halign="center"
+            ))
+
+        buttons = BoxLayout(size_hint_y=None, height=dp(46), spacing=dp(7))
+        cancel = make_button("BATAL")
+        confirm = make_button("KONFIRMASI PEMBAYARAN", primary=True)
+        buttons.add_widget(cancel)
+        buttons.add_widget(confirm)
+        content.add_widget(buttons)
+
+        popup = style_popup(Popup(
+            title="Pembayaran",
+            content=content,
+            size_hint=(None, None),
+            size=(dp(410), dp(390 if method == "QRIS" else 330))
+        ))
+        fit_popup(popup, content, min_width=dp(320), max_width=dp(500),
+                  min_height=dp(300), max_height_ratio=0.86, extra_height=dp(70))
+        cancel.bind(on_release=popup.dismiss)
+
+        def confirm_payment(*_):
+            try:
+                invoice = self.app.db.create_sale(
+                    cart_snapshot, subtotal, discount_value, tax_value, total,
+                    method, paid_value, change_value
+                )
+                self.app.last_receipt = (
+                    invoice, subtotal, discount_value, tax_value, total,
+                    method, paid_value, change_value, cart_snapshot
+                )
+                self.clear_cart()
+                popup.dismiss()
+                self.app.navigate("transactions")
+                self.app.notify(f"Pembayaran {invoice} dikonfirmasi.")
+                self.app.auto_backup()
+                Clock.schedule_once(lambda *_dt: self.app.auto_print_saved_receipt(), 0.15)
+            except Exception as error:
+                self.app.log_error("PAYMENT_CONFIRMATION", error)
+                self.app.notify("Pesanan gagal diselesaikan:\n" + str(error))
+
+        confirm.bind(on_release=confirm_payment)
+        popup.open()
 
     def clear_cart(self):
 
@@ -2899,21 +2675,45 @@ class ProductScreen(Screen):
                 else:
                     row.add_widget(Label(text="FOTO", size_hint_x=None, width=dp(68), color=MUTED, bold=True))
 
-                info = Label(
-                    text=f'{safe_text(product["name"])}\n{money(product["price"])}\n{safe_text(product["category"]) or "Tanpa kategori"}',
-                    color=TEXT, font_size="11sp", halign="left", valign="middle"
+                info = BoxLayout(
+                    orientation="vertical",
+                    spacing=dp(1),
+                    padding=[dp(2), dp(1), dp(2), dp(1)]
                 )
-                info.bind(size=lambda widget, value: setattr(widget, "text_size", value))
-                row.add_widget(info)
+                name_label = Label(
+                    text=safe_text(product["name"]),
+                    color=TEXT, font_size="11sp", bold=True,
+                    halign="left", valign="middle",
+                    shorten=True, shorten_from="right"
+                )
+                name_label.bind(size=lambda widget, value: setattr(widget, "text_size", value))
+                price_label = Label(
+                    text=money(product["price"]),
+                    color=TEXT, font_size="10sp",
+                    halign="left", valign="middle"
+                )
+                price_label.bind(size=lambda widget, value: setattr(widget, "text_size", value))
+                category_label = Label(
+                    text=safe_text(product["category"]) or "Tanpa kategori",
+                    color=MUTED, font_size="9sp",
+                    halign="left", valign="middle",
+                    shorten=True, shorten_from="right"
+                )
+                category_label.bind(size=lambda widget, value: setattr(widget, "text_size", value))
+                info.add_widget(name_label)
+                info.add_widget(price_label)
+                info.add_widget(category_label)
 
                 stock = PillLabel(
                     text=("STOK HABIS" if safe_float(product["stock"]) <= 0 else f'STOK {float(product["stock"]):g}'),
                     bg_color=("danger" if safe_float(product["stock"]) <= 0 else "success"),
-                    color=WHITE, bold=True, font_size="10sp",
-                    size_hint_x=None, width=dp(76), halign="center", valign="middle"
+                    color=WHITE, bold=True, font_size="9sp",
+                    size_hint_x=None, width=max(dp(58), dp(14) + len(("STOK HABIS" if safe_float(product["stock"]) <= 0 else f'STOK {float(product["stock"]):g}')) * dp(6.1)),
+                    halign="center", valign="middle"
                 )
                 stock.text_size = stock.size
-                row.add_widget(stock)
+                info.add_widget(stock)
+                row.add_widget(info)
 
                 edit_button = make_button("EDIT", primary=True, height=36)
                 edit_button.size_hint_x = None; edit_button.width = dp(56)
@@ -3522,6 +3322,18 @@ class SettingsScreen(Screen):
             address = self.app.db.setting("printer_address")
             self.ids.printer_status.text = "Printer: " + (address if address else "belum dipilih")
 
+            self.ids.qris_instruction.text = (self.app.db.setting("qris_instruction") or "Scan QRIS lalu lakukan pembayaran sesuai total.")
+            qris = self.app.resolve_image(self.app.db.setting("qris_image"))
+            self.ids.qris_preview.source = qris if qris else ""
+            if qris:
+                self.ids.qris_preview.reload()
+            self.ids.qris_status.text = "QRIS: terpasang" if qris else "QRIS: belum dipilih"
+            self.ids.bank_name.text = self.app.db.setting("bank_name") or ""
+            self.ids.bank_account.text = self.app.db.setting("bank_account") or ""
+            self.ids.bank_holder.text = self.app.db.setting("bank_holder") or ""
+            self.ids.ewallet_name.text = self.app.db.setting("ewallet_name") or "Dana"
+            self.ids.ewallet_number.text = self.app.db.setting("ewallet_number") or ""
+
         except Exception as error:
 
             self.app.log_error(
@@ -3585,6 +3397,16 @@ class SettingsScreen(Screen):
             self.app.db.set_setting("user_role", self.ids.role.text or "Owner")
             self.app.db.set_setting("low_stock_threshold", str(max(0, safe_float(self.ids.low_stock.text, 5))))
 
+            self.app.db.set_setting("qris_instruction", self.ids.qris_instruction.text.strip() or "Scan QRIS lalu lakukan pembayaran sesuai total.")
+            qris_source = self.ids.qris_preview.source or self.app.db.setting("qris_image") or ""
+            qris_path = self.app.save_payment_qr(qris_source) if qris_source else ""
+            self.app.db.set_setting("qris_image", qris_path)
+            self.app.db.set_setting("bank_name", self.ids.bank_name.text.strip())
+            self.app.db.set_setting("bank_account", self.ids.bank_account.text.strip())
+            self.app.db.set_setting("bank_holder", self.ids.bank_holder.text.strip())
+            self.app.db.set_setting("ewallet_name", self.ids.ewallet_name.text.strip() or "Dana")
+            self.app.db.set_setting("ewallet_number", self.ids.ewallet_number.text.strip())
+
             self.app.tax_percent = (
                 self.app.db.setting(
                     "tax_percent"
@@ -3603,6 +3425,30 @@ class SettingsScreen(Screen):
                 "SETTINGS_SAVE",
                 error
             )
+
+    def choose_qris(self):
+        try:
+            selected = {"path": self.ids.qris_preview.source or ""}
+            self.app.open_image_picker(selected, self.ids.qris_preview)
+            self._qris_selection = selected
+            self.app._settings_qris_selected = selected
+            self.ids.qris_status.text = "QRIS: gambar dipilih, tekan SIMPAN PENGATURAN"
+        except Exception as error:
+            self.app.log_error("QRIS_PICKER", error)
+            self.app.notify("Pemilih gambar QRIS gagal dibuka.")
+
+    def remove_qris(self):
+        try:
+            old = self.app.resolve_image(self.app.db.setting("qris_image"))
+            self.app.db.set_setting("qris_image", "")
+            self.ids.qris_preview.source = ""
+            self.ids.qris_status.text = "QRIS: belum dipilih"
+            if old and os.path.isfile(old) and old.startswith(os.path.abspath(self.app.images_dir) + os.sep):
+                try: os.remove(old)
+                except Exception: pass
+            self.app.notify("Gambar QRIS dihapus.")
+        except Exception as error:
+            self.app.log_error("QRIS_REMOVE", error)
 
     def choose_receipt_logo(self):
         try:
@@ -4562,6 +4408,31 @@ class UniversalPOS(App):
             return destination if os.path.isfile(destination) and os.path.getsize(destination) > 0 else ""
         except Exception as error:
             self.log_error("SAVE_RECEIPT_LOGO", error)
+            return ""
+
+    def save_payment_qr(self, path):
+        """Simpan gambar QRIS ke lokasi stabil di penyimpanan aplikasi."""
+        if not path:
+            return ""
+        try:
+            source = self.resolve_image(path) or os.path.abspath(str(path))
+            if not os.path.isfile(source):
+                return ""
+            os.makedirs(self.images_dir, exist_ok=True)
+            destination = os.path.join(self.images_dir, "payment_qris.png")
+            if os.path.abspath(source) == os.path.abspath(destination):
+                return destination
+            try:
+                from PIL import Image as PILImage
+                with PILImage.open(source) as im:
+                    if im.mode not in ("RGB", "RGBA"):
+                        im = im.convert("RGBA")
+                    im.save(destination, "PNG", optimize=True)
+            except Exception:
+                shutil.copy2(source, destination)
+            return destination if os.path.isfile(destination) and os.path.getsize(destination) > 0 else ""
+        except Exception as error:
+            self.log_error("SAVE_PAYMENT_QR", error)
             return ""
 
     # --------------------------------------------------------
