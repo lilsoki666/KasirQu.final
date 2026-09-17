@@ -1032,7 +1032,7 @@ KV = r'''
                             Label:
                                 id: qris_status
                                 text: "QRIS: belum dipilih"
-                                color: MUTED
+                                color: (.40,.44,.51,1)
                                 font_size: "10sp"
                                 halign: "left"
                                 valign: "middle"
@@ -1224,7 +1224,7 @@ KV = r'''
                         on_release: root.test_printer()
                     Label:
                         text: "Printer dipilih sekali di sini dan digunakan untuk transaksi serta cetak ulang."
-                        color: MUTED
+                        color: (.40,.44,.51,1)
                         font_size: "10sp"
                         size_hint_y: None
                         height: dp(36)
