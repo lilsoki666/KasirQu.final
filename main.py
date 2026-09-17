@@ -2522,8 +2522,8 @@ class POSScreen(Screen):
                 qr_card = Card(
                     orientation="vertical",
                     size_hint_y=None,
-                    height=dp(300),
-                    padding=dp(10)
+                    height=dp(500),
+                    padding=dp(6)
                 )
                 qr = Image(
                     source=qris_path,
@@ -2580,12 +2580,12 @@ class POSScreen(Screen):
         popup = style_popup(Popup(
             title="Pembayaran",
             content=content,
-            size_hint=(0.94, 0.88) if method == "QRIS" else (0.92, None),
-            size=(dp(410), dp(420 if method == "QRIS" else 330))
+            size_hint=(0.98, 0.95) if method == "QRIS" else (0.92, None),
+            size=(dp(440), dp(620 if method == "QRIS" else 330))
         ))
         if method == "QRIS":
             # Jangan mengecilkan popup QRIS kembali ke ukuran lama.
-            popup.size_hint = (0.94, 0.88)
+            popup.size_hint = (0.98, 0.95)
         else:
             fit_popup(
                 popup, content, min_width=dp(320), max_width=dp(500),
