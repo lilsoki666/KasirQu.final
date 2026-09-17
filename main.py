@@ -94,7 +94,7 @@ def printer_text(value):
     """Normalisasi teks struk ke ASCII agar printer ESC/POS tidak mencetak mojibake."""
     try:
         s = safe_text(value)
-        replacements = {"Ã—":"x", "â€¢":"-", "Â·":"-", "â€“":"-", "â€”":"-", "â€¦":"...", "â€œ":'"', "â€":'"', "â€˜":"'", "â€™":"'"}
+        replacements = {"×":"x", "•":"-", "·":"-", "–":"-", "—":"-", "…":"...", "“":'"', "”":'"', "‘":"'", "’":"'"}
         for src, dst in replacements.items():
             s = s.replace(src, dst)
         s = unicodedata.normalize("NFKD", s)
@@ -844,6 +844,23 @@ KV = r'''
         Widget:
 
 
+<SettingsInput@TextInput>:
+    multiline: False
+    size_hint_y: None
+    height: dp(42)
+    padding: [dp(11), dp(8)]
+    background_normal: ""
+    background_color: (1,1,1,1)
+    foreground_color: (0.08,0.11,0.16,1)
+    cursor_color: (0.12,0.32,0.78,1)
+    font_size: "13sp"
+    canvas.after:
+        Color:
+            rgba: (0.84,0.87,0.91,1)
+        Line:
+            rounded_rectangle: (self.x, self.y, self.width, self.height, dp(7))
+            width: 1.05
+
 <SettingsScreen>:
     BoxLayout:
         orientation: "vertical"
@@ -874,7 +891,7 @@ KV = r'''
                 Card:
                     orientation: "vertical"
                     size_hint_y: None
-                    height: dp(142)
+                    height: dp(130)
                     padding: dp(12)
                     spacing: dp(8)
                     Label:
@@ -909,7 +926,7 @@ KV = r'''
                 Card:
                     orientation: "vertical"
                     size_hint_y: None
-                    height: dp(390)
+                    height: dp(300)
                     padding: dp(14)
                     spacing: dp(7)
                     Label:
@@ -921,7 +938,7 @@ KV = r'''
                         height: dp(22)
                         halign: "left"
                         text_size: self.size
-                    TextInput:
+                    SettingsInput:
                         id: store
                         hint_text: "Nama usaha"
                         multiline: False
@@ -932,7 +949,7 @@ KV = r'''
                         background_color: (1,1,1,1)
                         foreground_color: (.08,.11,.16,1)
                         cursor_color: (.12,.32,.78,1)
-                    TextInput:
+                    SettingsInput:
                         id: address
                         hint_text: "Alamat / kontak"
                         multiline: False
@@ -943,7 +960,7 @@ KV = r'''
                         background_color: (1,1,1,1)
                         foreground_color: (.08,.11,.16,1)
                         cursor_color: (.12,.32,.78,1)
-                    TextInput:
+                    SettingsInput:
                         id: footer
                         hint_text: "Footer struk"
                         multiline: False
@@ -956,8 +973,8 @@ KV = r'''
                         cursor_color: (.12,.32,.78,1)
                     BoxLayout:
                         size_hint_y: None
-                        height: dp(96)
-                        spacing: dp(10)
+                        height: dp(86)
+                        spacing: dp(8)
                         Card:
                             size_hint_x: None
                             width: dp(88)
@@ -992,7 +1009,7 @@ KV = r'''
                 Card:
                     orientation: "vertical"
                     size_hint_y: None
-                    height: dp(475)
+                    height: dp(410)
                     padding: dp(14)
                     spacing: dp(7)
                     Label:
@@ -1015,7 +1032,7 @@ KV = r'''
                         text_size: self.size
                     BoxLayout:
                         size_hint_y: None
-                        height: dp(82)
+                        height: dp(72)
                         spacing: dp(8)
                         Card:
                             size_hint_x: None
@@ -1047,7 +1064,7 @@ KV = r'''
                                 SoftButton:
                                     text: "HAPUS"
                                     on_release: root.remove_qris()
-                    TextInput:
+                    SettingsInput:
                         id: qris_instruction
                         hint_text: "Teks instruksi QRIS"
                         multiline: False
@@ -1070,21 +1087,21 @@ KV = r'''
                         size_hint_y: None
                         height: dp(42)
                         spacing: dp(7)
-                        TextInput:
+                        SettingsInput:
                             id: bank_name
                             hint_text: "Nama bank"
                             multiline: False
                             padding: [dp(10),dp(8)]
                             background_normal: ""
                             background_color: (1,1,1,1)
-                        TextInput:
+                        SettingsInput:
                             id: bank_account
                             hint_text: "Nomor rekening"
                             multiline: False
                             padding: [dp(10),dp(8)]
                             background_normal: ""
                             background_color: (1,1,1,1)
-                    TextInput:
+                    SettingsInput:
                         id: bank_holder
                         hint_text: "Atas nama"
                         multiline: False
@@ -1106,14 +1123,14 @@ KV = r'''
                         size_hint_y: None
                         height: dp(42)
                         spacing: dp(7)
-                        TextInput:
+                        SettingsInput:
                             id: ewallet_name
                             hint_text: "Nama e-wallet"
                             multiline: False
                             padding: [dp(10),dp(8)]
                             background_normal: ""
                             background_color: (1,1,1,1)
-                        TextInput:
+                        SettingsInput:
                             id: ewallet_number
                             hint_text: "Nomor HP / akun"
                             multiline: False
@@ -1124,7 +1141,7 @@ KV = r'''
                 Card:
                     orientation: "vertical"
                     size_hint_y: None
-                    height: dp(310)
+                    height: dp(300)
                     padding: dp(14)
                     spacing: dp(7)
                     Label:
@@ -1136,7 +1153,7 @@ KV = r'''
                         height: dp(22)
                         halign: "left"
                         text_size: self.size
-                    TextInput:
+                    SettingsInput:
                         id: cashier
                         hint_text: "Nama kasir"
                         multiline: False
@@ -1155,7 +1172,7 @@ KV = r'''
                         size_hint_y: None
                         height: dp(42)
                         spacing: dp(8)
-                        TextInput:
+                        SettingsInput:
                             id: tax
                             hint_text: "Pajak (%)"
                             input_filter: "float"
@@ -1163,7 +1180,7 @@ KV = r'''
                             padding: [dp(10),dp(8)]
                             background_normal: ""
                             background_color: (1,1,1,1)
-                        TextInput:
+                        SettingsInput:
                             id: low_stock
                             hint_text: "Batas stok menipis"
                             input_filter: "float"
@@ -2535,7 +2552,7 @@ class POSScreen(Screen):
                 qr_card.add_widget(qr)
                 content.add_widget(qr_card)
             else:
-                content.add_widget(text_label("QRIS belum diatur. Masuk ke Pengaturan â†’ Pembayaran â†’ Pilih QRIS.", size=12, halign="center"))
+                content.add_widget(text_label("QRIS belum diatur. Masuk ke Pengaturan → Pembayaran → Pilih QRIS.", size=12, halign="center"))
             instruction = self.app.db.setting("qris_instruction") or "Scan QRIS lalu lakukan pembayaran sesuai total."
             content.add_widget(text_label(instruction, size=12, halign="center"))
 
