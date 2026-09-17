@@ -94,7 +94,7 @@ def printer_text(value):
     """Normalisasi teks struk ke ASCII agar printer ESC/POS tidak mencetak mojibake."""
     try:
         s = safe_text(value)
-        replacements = {"Ã—":"x", "â€¢":"-", "Â·":"-", "â€“":"-", "â€”":"-", "â€¦":"...", "â€œ":'"', "â€":'"', "â€˜":"'", "â€™":"'"}
+        replacements = {"×":"x", "•":"-", "·":"-", "–":"-", "—":"-", "…":"...", "“":'"', "”":'"', "‘":"'", "’":"'"}
         for src, dst in replacements.items():
             s = s.replace(src, dst)
         s = unicodedata.normalize("NFKD", s)
@@ -231,7 +231,7 @@ class IconNavButton(BoxLayout):
         self.add_widget(self.label)
 
         with self.canvas.before:
-            Color(0.12, 0.32, 0.78, 0)
+            self._active_color = Color(0.12, 0.32, 0.78, 0)
             from kivy.graphics import Rectangle
             self._active_line = Rectangle(
                 pos=(self.x, self.top - dp(3)),
@@ -257,7 +257,7 @@ class IconNavButton(BoxLayout):
     def _sync_active(self, *_):
         self._active_line.pos = (self.x, self.top - dp(3))
         self._active_line.size = (self.width, dp(3))
-        self._active_line.a = 1 if self.is_active else 0
+        self._active_color.a = 1 if self.is_active else 0
         self.label.color = PRIMARY if self.is_active else MUTED
 
     def on_touch_down(self, touch):
