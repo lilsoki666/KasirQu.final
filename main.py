@@ -2183,81 +2183,138 @@ class POSScreen(Screen):
             self.app.notify("Scanner tidak tersedia. Anda tetap bisa memakai scanner Bluetooth/USB atau mengetik barcode lalu Enter.")
 
     def open_cart_popup(self):
-        """Checkout cart styled to match the Revision 3 design reference."""
+        """Checkout cart: responsive layout for small Android screens."""
         try:
             if not self.cart_data:
                 self.app.notify("Keranjang masih kosong.")
                 return
 
-            content = BoxLayout(orientation="vertical", spacing=dp(8), padding=[dp(14), dp(10), dp(14), dp(12)])
+            content = BoxLayout(
+                orientation="vertical",
+                spacing=dp(7),
+                padding=[dp(14), dp(10), dp(14), dp(12)]
+            )
 
             title_line = Label(
-                text="Keranjang", color=TEXT, font_size="20sp", bold=True,
-                size_hint_y=None, height=dp(32), halign="left", valign="middle"
+                text="Checkout Transaksi",
+                color=TEXT,
+                font_size="18sp",
+                bold=False,
+                size_hint_y=None,
+                height=dp(30),
+                halign="left",
+                valign="middle"
             )
-            title_line.text_size = title_line.size
+            title_line.bind(size=lambda w, v: setattr(w, "text_size", v))
             content.add_widget(title_line)
 
-            with_line = Widget(size_hint_y=None, height=dp(2))
-            from kivy.graphics import Color as _Color, Rectangle as _Rectangle
-            with with_line.canvas:
-                _Color(*BORDER)
-                line_rect = _Rectangle(pos=with_line.pos, size=with_line.size)
-            with_line.bind(pos=lambda w,v: setattr(line_rect, 'pos', w.pos),
-                           size=lambda w,v: setattr(line_rect, 'size', w.size))
-            content.add_widget(with_line)
+            line = Widget(size_hint_y=None, height=dp(2))
+            with line.canvas:
+                Color(*BORDER)
+                line_rect = RoundedRectangle(pos=line.pos, size=line.size, radius=[dp(1)])
+            line.bind(pos=lambda w,v: setattr(line_rect, "pos", w.pos),
+                      size=lambda w,v: setattr(line_rect, "size", w.size))
+            content.add_widget(line)
 
-            scroll = ScrollView(do_scroll_x=False, bar_width=dp(2), size_hint_y=1)
-            rows = GridLayout(cols=1, spacing=dp(7), size_hint_y=None, padding=[0, dp(2), 0, dp(2)])
+            scroll = ScrollView(do_scroll_x=False, bar_width=dp(2), size_hint_y=None)
+            rows = GridLayout(
+                cols=1, spacing=dp(7), size_hint_y=None,
+                padding=[0, dp(2), 0, dp(2)]
+            )
             rows.bind(minimum_height=rows.setter("height"))
             scroll.add_widget(rows)
             content.add_widget(scroll)
 
-            discount_row = BoxLayout(size_hint_y=None, height=dp(46), spacing=dp(8))
-            discount_row.add_widget(Label(text="Diskon Toko", color=MUTED, font_size="12sp", size_hint_x=None, width=dp(82), halign="left", valign="middle"))
-            discount = OutlinedInput(text="0", hint_text="0", input_filter="float", multiline=False, size_hint_x=None, width=dp(125), padding=[dp(9),dp(8)])
+            discount_row = BoxLayout(
+                size_hint_y=None, height=dp(48), spacing=dp(8)
+            )
+            discount_row.add_widget(Label(
+                text="Diskon Toko", color=MUTED, font_size="12sp",
+                size_hint_x=None, width=dp(82), halign="left", valign="middle"
+            ))
+            discount = OutlinedInput(
+                text="0", hint_text="0", input_filter="float", multiline=False,
+                size_hint_x=None, width=dp(115),
+                padding=[dp(9), dp(8)]
+            )
             discount_row.add_widget(discount)
             discount_row.add_widget(Widget())
-            total_label = Label(text="TOTAL  Rp 0", color=PRIMARY, font_size="18sp", bold=True, size_hint_x=None, width=dp(185), halign="right", valign="middle")
-            total_label.text_size = total_label.size
+            total_label = Label(
+                text="TOTAL  Rp 0", color=PRIMARY, font_size="16sp", bold=True,
+                size_hint_x=None, width=dp(175), halign="right", valign="middle"
+            )
+            total_label.bind(size=lambda w,v: setattr(w, "text_size", v))
             discount_row.add_widget(total_label)
             content.add_widget(discount_row)
 
-            pay = make_button("PILIH PEMBAYARAN  >", primary=True, height=48)
+            pay = make_button("PILIH PEMBAYARAN  >", primary=True, height=50)
             content.add_widget(pay)
+
+            def resize_cart_scroll(*_):
+                try:
+                    desired = max(dp(82), rows.minimum_height + dp(4))
+                    # One/few items stay compact; many items get a scroll area.
+                    scroll.height = min(dp(300), desired)
+                except Exception:
+                    pass
+
+            rows.bind(minimum_height=resize_cart_scroll)
 
             def redraw(*_):
                 try:
                     rows.clear_widgets()
                     for index, item in enumerate(list(self.cart_data)):
-                        row = Card(orientation="horizontal", size_hint_y=None, height=dp(76), padding=dp(7), spacing=dp(7), radius=dp(12))
+                        row = Card(
+                            orientation="horizontal", size_hint_y=None,
+                            height=dp(76), padding=dp(7), spacing=dp(6), radius=dp(12)
+                        )
                         image_path = self.app.resolve_image(item.get("image", ""))
                         if image_path:
-                            img = Image(source=image_path, size_hint_x=None, width=dp(56), allow_stretch=True, keep_ratio=True)
+                            img = Image(
+                                source=image_path, size_hint_x=None, width=dp(52),
+                                allow_stretch=True, keep_ratio=True
+                            )
                             img.reload()
                         else:
-                            img = Label(text="FOTO", color=MUTED, font_size="8sp", size_hint_x=None, width=dp(56), halign="center", valign="middle")
+                            img = Label(
+                                text="FOTO", color=MUTED, font_size="8sp",
+                                size_hint_x=None, width=dp(52), halign="center", valign="middle"
+                            )
                             img.text_size = img.size
                         row.add_widget(img)
 
                         info = BoxLayout(orientation="vertical", spacing=0)
-                        name = Label(text=safe_text(item.get("name", "Produk")), color=TEXT, font_size="11sp", bold=True, halign="left", valign="middle")
-                        name.text_size = name.size
-                        price = Label(text=money(item.get("price",0)), color=MUTED, font_size="9sp", halign="left", valign="middle")
-                        price.text_size = price.size
+                        name = Label(
+                            text=safe_text(item.get("name", "Produk")), color=TEXT,
+                            font_size="11sp", bold=True, halign="left", valign="middle"
+                        )
+                        name.bind(size=lambda w,v: setattr(w,"text_size",v))
+                        price = Label(
+                            text=money(item.get("price",0)), color=MUTED,
+                            font_size="9sp", halign="left", valign="middle"
+                        )
+                        price.bind(size=lambda w,v: setattr(w,"text_size",v))
                         info.add_widget(name); info.add_widget(price)
                         row.add_widget(info)
 
-                        minus = make_button("-", primary=False, height=34); minus.size_hint_x=None; minus.width=dp(32)
-                        qty = Label(text=f'{item["qty"]:g}', color=TEXT, font_size="11sp", bold=True, size_hint_x=None, width=dp(22), halign="center", valign="middle"); qty.text_size=qty.size
-                        plus = make_button("+", primary=True, height=34); plus.size_hint_x=None; plus.width=dp(32)
-                        remove = make_button("x", primary=False, height=34); remove.size_hint_x=None; remove.width=dp(28)
+                        minus = make_button("-", primary=False, height=34)
+                        minus.size_hint_x=None; minus.width=dp(30)
+                        qty = Label(
+                            text=f'{item["qty"]:g}', color=TEXT, font_size="11sp", bold=True,
+                            size_hint_x=None, width=dp(22), halign="center", valign="middle"
+                        )
+                        qty.text_size = qty.size
+                        plus = make_button("+", primary=True, height=34)
+                        plus.size_hint_x=None; plus.width=dp(30)
+                        remove = make_button("x", primary=False, height=34)
+                        remove.size_hint_x=None; remove.width=dp(28)
                         minus.bind(on_release=lambda *_a, i=index: self.change_qty(i,-1,redraw))
                         plus.bind(on_release=lambda *_a, i=index: self.change_qty(i,1,redraw))
                         remove.bind(on_release=lambda *_a, i=index: self.remove_item(i,redraw))
                         row.add_widget(minus); row.add_widget(qty); row.add_widget(plus); row.add_widget(remove)
                         rows.add_widget(row)
 
+                    resize_cart_scroll()
                     total_label.text = f"TOTAL  {money(self.calculate_total(discount.text or '0')[3])}"
                 except Exception as error:
                     self.app.log_error("CART_REDRAW", error)
@@ -2273,10 +2330,20 @@ class POSScreen(Screen):
 
             discount.bind(text=redraw)
             pay.bind(on_release=payment)
-            popup = style_popup(Popup(title="", content=content, size_hint=(None,None), size=(min(dp(560), Window.width*0.94), min(dp(620), Window.height*0.82)), auto_dismiss=True))
+
+            width = min(dp(560), Window.width * 0.92)
+            # Keep the dialog inside the visible screen, including Android density.
+            popup = style_popup(Popup(
+                title="",
+                content=content,
+                size_hint=(None,None),
+                size=(width, min(dp(520), Window.height * 0.72)),
+                auto_dismiss=True
+            ))
             redraw()
+            Clock.schedule_once(lambda *_: resize_cart_scroll(), 0)
+            Clock.schedule_once(lambda *_: resize_cart_scroll(), 0.05)
             popup.open()
-            Clock.schedule_once(lambda *_: setattr(popup, 'title', ''), 0)
         except Exception as error:
             self.app.log_error("OPEN_CART", error)
             self.app.notify("Keranjang gagal dibuka. Silakan coba lagi.")
@@ -2333,28 +2400,50 @@ class POSScreen(Screen):
             self.app.notify("Keranjang masih kosong.")
             return
 
-        subtotal, discount_value, tax_value, total = self.calculate_total(discount, self.app.tax_percent if tax is None else tax)
-        content = BoxLayout(orientation="vertical", spacing=dp(9), padding=[dp(14),dp(10),dp(14),dp(12)])
+        subtotal, discount_value, tax_value, total = self.calculate_total(
+            discount, self.app.tax_percent if tax is None else tax
+        )
+        content = BoxLayout(
+            orientation="vertical", spacing=dp(8),
+            padding=[dp(14), dp(10), dp(14), dp(12)]
+        )
 
-        total_card = Card(orientation="vertical", size_hint_y=None, height=dp(82), padding=dp(9), spacing=dp(1), radius=dp(10))
-        total_card.add_widget(Label(text="TOTAL PEMBAYARAN", color=MUTED, font_size="10sp", size_hint_y=None, height=dp(20), halign="left", text_size=(0,0)))
-        total_value = Label(text=money(total), color=PRIMARY, font_size="22sp", bold=True, halign="left", valign="middle")
-        total_value.text_size = total_value.size
+        total_card = Card(
+            orientation="vertical", size_hint_y=None, height=dp(78),
+            padding=[dp(10), dp(7)], spacing=0, radius=dp(10)
+        )
+        total_card.add_widget(Label(
+            text="TOTAL PEMBAYARAN", color=MUTED, font_size="10sp",
+            size_hint_y=None, height=dp(18), halign="left", valign="middle"
+        ))
+        total_value = Label(
+            text=money(total), color=PRIMARY, font_size="21sp", bold=True,
+            halign="left", valign="middle"
+        )
+        total_value.bind(size=lambda w,v: setattr(w,"text_size",v))
         total_card.add_widget(total_value)
         content.add_widget(total_card)
 
-        heading = Label(text="Pilih Metode Pembayaran", color=TEXT, font_size="12sp", bold=True, size_hint_y=None, height=dp(24), halign="left", valign="middle"); heading.text_size=heading.size
+        heading = Label(
+            text="Metode Pembayaran", color=TEXT, font_size="13sp", bold=True,
+            size_hint_y=None, height=dp(25), halign="left", valign="middle"
+        )
+        heading.bind(size=lambda w,v: setattr(w,"text_size",v))
         content.add_widget(heading)
 
         selected = {"method":"Tunai"}
         method_buttons = []
-        grid = GridLayout(cols=2, spacing=dp(7), size_hint_y=None, height=dp(190))
+        grid = GridLayout(cols=2, spacing=dp(7), size_hint_y=None, height=dp(172))
 
         def method_card(label, sub, method, accent=PRIMARY):
-            btn = Button(text=f"{label}\n{sub}", background_normal="", background_down="", background_color=(0,0,0,0), color=TEXT, bold=True, font_size="10sp", halign="left", valign="middle")
-            btn.text_size = btn.size
-            btn._method = method
-            btn._accent = accent
+            btn = Button(
+                text=f"{label}\n{sub}", background_normal="", background_down="",
+                background_color=(0,0,0,0), color=TEXT, bold=True, font_size="11sp",
+                halign="center", valign="middle", padding=[dp(8),dp(5)]
+            )
+            # Width-aware text prevents words such as "Transfer Bank" from being clipped.
+            btn.bind(size=lambda w,v: setattr(w,"text_size",(max(0,w.width-dp(16)), max(0,w.height-dp(8)))))
+            btn._method = method; btn._accent = accent
             with btn.canvas.before:
                 btn._mc = Color(*WHITE)
                 btn._mr = RoundedRectangle(pos=btn.pos,size=btn.size,radius=[dp(10)])
@@ -2364,47 +2453,79 @@ class POSScreen(Screen):
                 active = selected["method"] == method
                 btn._mc.rgba = (0.93,0.96,1,1) if active else WHITE
                 btn._bc.rgba = accent if active else BORDER
-                btn._mr.pos=btn.pos; btn._mr.size=btn.size; btn._ml.rounded_rectangle=(btn.x,btn.y,btn.width,btn.height,dp(10))
+                btn._mr.pos=btn.pos; btn._mr.size=btn.size
+                btn._ml.rounded_rectangle=(btn.x,btn.y,btn.width,btn.height,dp(10))
                 btn.color = accent if active else TEXT
             btn.bind(pos=upd,size=upd)
             def choose(*_):
                 selected["method"] = method
                 for child in method_buttons:
-                    try: child["update"]()
-                    except Exception: pass
+                    child["update"]()
                 update_fields()
-            method_buttons.append({"button": btn, "update": upd})
+            method_buttons.append({"button":btn,"update":upd})
             btn.bind(on_release=choose)
             Clock.schedule_once(upd,0)
             return btn
 
-        grid.add_widget(method_card("QRIS","Scan QRIS untuk pembayaran","QRIS"))
-        grid.add_widget(method_card("Transfer Bank","Transfer ke rekening bank","Transfer"))
-        grid.add_widget(method_card("E-Wallet","Bayar dengan e-wallet","E-Wallet", SUCCESS))
-        grid.add_widget(method_card("Tunai","Pembayaran tunai","Tunai"))
+        grid.add_widget(method_card("QRIS", "Scan QRIS", "QRIS"))
+        grid.add_widget(method_card("Transfer Bank", "Transfer ke rekening", "Transfer"))
+        grid.add_widget(method_card("E-Wallet", "Bayar dengan e-wallet", "E-Wallet", SUCCESS))
+        grid.add_widget(method_card("Tunai", "Pembayaran tunai", "Tunai"))
         content.add_widget(grid)
 
-        paid = OutlinedInput(hint_text="Uang diterima", input_filter="float", multiline=False, size_hint_y=None, height=42, padding=[dp(10),dp(8)])
+        paid = OutlinedInput(
+            hint_text="Uang diterima", input_filter="float", multiline=False,
+            size_hint_y=None, height=dp(44), padding=[dp(10),dp(8)]
+        )
         content.add_widget(paid)
-        change = Label(text="Kembalian  Rp 0", color=SUCCESS, font_size="13sp", bold=True, size_hint_y=None, height=30, halign="right", valign="middle"); change.text_size=change.size
-        content.add_widget(change)
-        account_status = Label(text="Pembayaran tunai.", color=MUTED, font_size="9sp", size_hint_y=None, height=28, halign="center", valign="middle"); account_status.text_size=account_status.size
+
+        change_card = Card(
+            orientation="horizontal", size_hint_y=None, height=dp(46),
+            padding=[dp(10),dp(5)], spacing=dp(6), radius=dp(9)
+        )
+        change_title = Label(
+            text="KEMBALIAN", color=MUTED, font_size="11sp", bold=True,
+            size_hint_x=None, width=dp(90), halign="left", valign="middle"
+        )
+        change_title.bind(size=lambda w,v:setattr(w,"text_size",v))
+        change = Label(
+            text="Rp 0", color=SUCCESS, font_size="15sp", bold=True,
+            halign="right", valign="middle"
+        )
+        change.bind(size=lambda w,v:setattr(w,"text_size",v))
+        change_card.add_widget(change_title); change_card.add_widget(change)
+        content.add_widget(change_card)
+
+        account_status = Label(
+            text="Masukkan uang yang diterima.", color=MUTED, font_size="10sp",
+            size_hint_y=None, height=dp(25), halign="center", valign="middle"
+        )
+        account_status.bind(size=lambda w,v:setattr(w,"text_size",v))
         content.add_widget(account_status)
 
-        buttons = BoxLayout(size_hint_y=None, height=46, spacing=7)
-        cancel = make_button("BATAL", height=46); done = make_button("LANJUTKAN  >", primary=True, height=46)
-        buttons.add_widget(cancel); buttons.add_widget(done); content.add_widget(buttons)
+        buttons = BoxLayout(size_hint_y=None, height=dp(48), spacing=dp(7))
+        cancel = make_button("BATAL", height=48)
+        done = make_button("LANJUTKAN  >", primary=True, height=48)
+        buttons.add_widget(cancel); buttons.add_widget(done)
+        content.add_widget(buttons)
 
         def update_fields(*_):
             m=selected["method"]
             if m=="Tunai":
-                paid.disabled=False; paid.opacity=1; account_status.text="Masukkan uang yang diterima."; change.text="Kembalian  " + money(max(0,safe_float(paid.text)-total))
+                paid.disabled=False; paid.opacity=1
+                paid.hint_text="Uang diterima"
+                value=max(0,safe_float(paid.text)-total)
+                change.text=money(value)
+                account_status.text="Masukkan uang yang diterima."
             elif m in ("Transfer","E-Wallet"):
-                paid.disabled=True; paid.text=""; change.text="Kembalian  Rp 0"
+                paid.disabled=True; paid.opacity=.55; paid.text=""
+                change.text="Rp 0"
                 accounts=self.app.db.payment_accounts("bank" if m=="Transfer" else "wallet")
-                account_status.text=f"{len(accounts)} akun tersedia. Pilih akun pada langkah berikutnya." if accounts else "Belum ada akun. Tambahkan di Pengaturan."
+                account_status.text=(f"{len(accounts)} akun tersedia. Pilih akun tujuan." if accounts else "Belum ada akun. Tambahkan di Pengaturan.")
             else:
-                paid.disabled=True; paid.text=""; change.text="Kembalian  Rp 0"; account_status.text="Pastikan pembayaran sudah diterima."
+                paid.disabled=True; paid.opacity=.55; paid.text=""
+                change.text="Rp 0"
+                account_status.text="Scan QRIS, lalu konfirmasi setelah pembayaran diterima."
 
         paid.bind(text=lambda *_: update_fields())
         cancel.bind(on_release=lambda *_: popup.dismiss())
@@ -2415,27 +2536,46 @@ class POSScreen(Screen):
                 pv=safe_float(paid.text)
                 if pv<total:
                     self.app.notify("Uang kurang " + money(total-pv)); return
-                finish(pv, m, None)
-                return
+                finish(pv,m,None); return
             if m in ("Transfer","E-Wallet"):
                 accounts=self.app.db.payment_accounts("bank" if m=="Transfer" else "wallet")
                 if not accounts:
                     self.app.notify("Belum ada akun pembayaran. Tambahkan di Pengaturan."); return
-                popup.dismiss(); Clock.schedule_once(lambda *_: self.open_account_selection_popup(m,total,accounts,lambda account: self.open_payment_confirmation(m,total,account,finish)),0.05); return
-            popup.dismiss(); Clock.schedule_once(lambda *_: self.open_payment_confirmation(m,total,None,finish),0.05)
+                popup.dismiss()
+                Clock.schedule_once(lambda *_: self.open_account_selection_popup(
+                    m,total,accounts,lambda account:self.open_payment_confirmation(m,total,account,finish)
+                ),0.05)
+                return
+            popup.dismiss()
+            Clock.schedule_once(lambda *_: self.open_payment_confirmation(m,total,None,finish),0.05)
 
         def finish(paid_value, method, account):
             try:
+                paid_value = safe_float(paid_value, total)
+                if method != "Tunai": paid_value = total
                 cart_snapshot=[dict(item) for item in self.cart_data]
-                invoice=self.app.db.create_sale(cart_snapshot,subtotal,discount_value,tax_value,total,method,paid_value, max(0,paid_value-total) if method=="Tunai" else 0)
-                self.app.last_receipt=(invoice,subtotal,discount_value,tax_value,total,method,paid_value,max(0,paid_value-total) if method=="Tunai" else 0,cart_snapshot)
-                self.clear_cart(); self.app.root.ids.sm.current="pos"; self.app.refresh_nav_highlight(); self.app.notify(f"Transaksi {invoice} berhasil."); self.app.auto_backup(); Clock.schedule_once(lambda *_dt:self.app.auto_print_saved_receipt(),0.15)
+                invoice=self.app.db.create_sale(
+                    cart_snapshot,subtotal,discount_value,tax_value,total,method,paid_value,
+                    max(0,paid_value-total) if method=="Tunai" else 0
+                )
+                self.app.last_receipt=(invoice,subtotal,discount_value,tax_value,total,method,paid_value,
+                                       max(0,paid_value-total) if method=="Tunai" else 0,cart_snapshot)
+                self.clear_cart()
+                self.app.root.ids.sm.current="pos"
+                self.app.refresh_nav_highlight()
+                self.app.notify(f"Transaksi {invoice} berhasil.")
+                self.app.auto_backup()
+                Clock.schedule_once(lambda *_dt:self.app.auto_print_saved_receipt(),0.15)
             except Exception as error:
-                self.app.log_error("CHECKOUT",error); self.app.notify("Transaksi gagal:\n"+str(error))
+                self.app.log_error("CHECKOUT",error)
+                self.app.notify("Transaksi gagal:\n"+str(error))
 
         done.bind(on_release=continue_payment)
-        popup=style_popup(Popup(title="Pembayaran",content=content,size_hint=(None,None),size=(min(dp(520),Window.width*.94),min(dp(590),Window.height*.88)),auto_dismiss=False))
-        fit_popup(popup,content,min_width=dp(360),max_width=dp(560),min_height=dp(430),max_height_ratio=.92,extra_height=dp(55))
+        width=min(dp(560),Window.width*.92)
+        popup=style_popup(Popup(
+            title="Pembayaran",content=content,size_hint=(None,None),
+            size=(width,min(dp(540),Window.height*.72)),auto_dismiss=False
+        ))
         popup.open(); update_fields()
 
     def open_account_selection_popup(self, method, total, accounts, on_selected):
@@ -2485,67 +2625,97 @@ class POSScreen(Screen):
         popup.open()
 
     def open_payment_confirmation(self, method, total, account, complete_sale):
-        content = BoxLayout(orientation="vertical", spacing=dp(9), padding=dp(14))
+        content = BoxLayout(
+            orientation="vertical", spacing=dp(9),
+            padding=[dp(14), dp(12), dp(14), dp(12)]
+        )
 
-        title = Label(text="KONFIRMASI PEMBAYARAN", color=TEXT, font_size="18sp", bold=True,
-                      size_hint_y=None, height=dp(32), halign="center", valign="middle")
-        title.bind(size=lambda w,v: setattr(w,"text_size",v))
+        title = Label(
+            text="KONFIRMASI PEMBAYARAN", color=TEXT, font_size="17sp", bold=True,
+            size_hint_y=None, height=dp(32), halign="center", valign="middle"
+        )
+        title.bind(size=lambda w,v:setattr(w,"text_size",v))
         content.add_widget(title)
 
-        total_lbl = Label(text="Total Pembayaran\n" + money(total), color=PRIMARY, font_size="22sp", bold=True,
-                          size_hint_y=None, height=dp(68), halign="center", valign="middle")
-        total_lbl.bind(size=lambda w,v: setattr(w,"text_size",v))
+        total_lbl = Label(
+            text="Total Pembayaran\n" + money(total), color=PRIMARY,
+            font_size="21sp", bold=True, size_hint_y=None, height=dp(68),
+            halign="center", valign="middle"
+        )
+        total_lbl.bind(size=lambda w,v:setattr(w,"text_size",v))
         content.add_widget(total_lbl)
 
         if method == "QRIS":
-            qr_card = Card(orientation="vertical", size_hint_y=None, height=dp(430), padding=dp(10), spacing=dp(8), radius=dp(12))
-            image_path = self.app.resolve_image(self.app.db.setting("qris_image"))
+            qr_card = Card(
+                orientation="vertical", size_hint_y=None, height=dp(330),
+                padding=dp(8), spacing=dp(6), radius=dp(12)
+            )
+            image_path=self.app.resolve_image(self.app.db.setting("qris_image"))
             if image_path:
-                qr_holder = AnchorLayout(size_hint_y=None, height=dp(355), anchor_x="center", anchor_y="center")
-                qr = Image(source=image_path, size_hint=(None,None), width=dp(335), height=dp(335), allow_stretch=True, keep_ratio=True)
-                qr.reload()
-                qr_holder.add_widget(qr)
-                qr_card.add_widget(qr_holder)
+                qr_holder=AnchorLayout(size_hint_y=None,height=dp(265),anchor_x="center",anchor_y="center")
+                qr=Image(source=image_path,size_hint=(None,None),width=dp(235),height=dp(235),allow_stretch=True,keep_ratio=True)
+                qr.reload(); qr_holder.add_widget(qr); qr_card.add_widget(qr_holder)
             else:
-                qr_card.add_widget(Label(text="QRIS belum dipasang di Pengaturan.", color=DANGER, font_size="14sp",
-                                         size_hint_y=None, height=dp(250), halign="center", valign="middle"))
-            instruction = self.app.db.setting("qris_instruction") or "Scan QRIS lalu lakukan pembayaran sesuai total."
-            ins = Label(text=instruction, color=TEXT, font_size="12sp", size_hint_y=None, height=dp(42), halign="center", valign="middle")
-            ins.bind(size=lambda w,v: setattr(w,"text_size",v))
-            qr_card.add_widget(ins)
+                qr_card.add_widget(Label(
+                    text="QRIS belum dipasang di Pengaturan.", color=DANGER,
+                    font_size="13sp", size_hint_y=None, height=dp(230),
+                    halign="center", valign="middle"
+                ))
+            instruction=self.app.db.setting("qris_instruction") or "Scan QRIS lalu lakukan pembayaran sesuai total."
+            ins=Label(
+                text=instruction,color=TEXT,font_size="11sp",size_hint_y=None,height=dp(42),
+                halign="center",valign="middle"
+            )
+            ins.bind(size=lambda w,v:setattr(w,"text_size",v)); qr_card.add_widget(ins)
             content.add_widget(qr_card)
-        elif method in ("Transfer", "E-Wallet") and account is not None:
-            box = Card(orientation="vertical", size_hint_y=None, height=dp(155), padding=dp(14), spacing=dp(3), radius=dp(12))
-            provider_label = "BANK / TUJUAN" if method == "Transfer" else "E-WALLET / TUJUAN"
-            small = Label(text=provider_label, color=MUTED, font_size="10sp", bold=True, size_hint_y=None, height=dp(20), halign="center")
-            p = Label(text=safe_text(account["provider"]), color=PRIMARY, font_size="18sp", bold=True, size_hint_y=None, height=dp(28), halign="center")
-            n = Label(text=safe_text(account["account_number"]), color=TEXT, font_size="20sp", bold=True, size_hint_y=None, height=dp(32), halign="center")
-            h = Label(text="a.n. " + safe_text(account["account_name"]), color=MUTED, font_size="12sp", size_hint_y=None, height=dp(24), halign="center")
-            for w in (small,p,n,h): w.text_size=w.size
+        elif method in ("Transfer","E-Wallet") and account is not None:
+            # Use a wider, taller card and non-wrapping single-line account fields.
+            box=Card(
+                orientation="vertical", size_hint_y=None, height=dp(185),
+                padding=[dp(14),dp(12)], spacing=dp(4), radius=dp(12)
+            )
+            provider_label="BANK / TUJUAN" if method=="Transfer" else "E-WALLET / TUJUAN"
+            small=Label(text=provider_label,color=MUTED,font_size="10sp",bold=True,size_hint_y=None,height=dp(22),halign="center",valign="middle")
+            p=Label(text=safe_text(account["provider"]),color=PRIMARY,font_size="17sp",bold=True,size_hint_y=None,height=dp(28),halign="center",valign="middle")
+            n=Label(text=safe_text(account["account_number"]),color=TEXT,font_size="17sp",bold=True,size_hint_y=None,height=dp(31),halign="center",valign="middle")
+            h=Label(text="a.n. "+safe_text(account["account_name"]),color=MUTED,font_size="12sp",size_hint_y=None,height=dp(27),halign="center",valign="middle")
+            for w in (small,p,n,h):
+                w.bind(size=lambda widget,value:setattr(widget,"text_size",(max(0,widget.width-dp(4)),None)))
+                w.bind(texture_size=lambda widget,value: None)
             box.add_widget(small); box.add_widget(p); box.add_widget(n); box.add_widget(h)
             content.add_widget(box)
-            action = "transfer" if method == "Transfer" else "pembayaran"
-            info = Label(text=f"Setelah {action} diterima, tekan KONFIRMASI PEMBAYARAN.", color=TEXT,
-                         font_size="12sp", size_hint_y=None, height=dp(54), halign="center", valign="middle")
-            info.bind(size=lambda w,v: setattr(w,"text_size",v))
-            content.add_widget(info)
+            action="transfer" if method=="Transfer" else "pembayaran"
+            info=Label(
+                text=f"Setelah {action} diterima, tekan KONFIRMASI PEMBAYARAN.",
+                color=TEXT,font_size="12sp",size_hint_y=None,height=dp(58),halign="center",valign="middle"
+            )
+            info.bind(size=lambda w,v:setattr(w,"text_size",v)); content.add_widget(info)
         else:
-            info = Label(text="Pastikan pembayaran sudah diterima sebelum melanjutkan.", color=TEXT,
-                         font_size="13sp", size_hint_y=None, height=dp(86), halign="center", valign="middle")
-            info.bind(size=lambda w,v: setattr(w,"text_size",v))
-            content.add_widget(info)
+            info=Label(
+                text="Pastikan pembayaran sudah diterima sebelum melanjutkan.",color=TEXT,
+                font_size="13sp",size_hint_y=None,height=dp(86),halign="center",valign="middle"
+            )
+            info.bind(size=lambda w,v:setattr(w,"text_size",v)); content.add_widget(info)
 
-        buttons = BoxLayout(size_hint_y=None, height=dp(52), spacing=dp(10))
-        cancel = make_button("BATAL", height=52)
-        confirm = make_button("KONFIRMASI PEMBAYARAN", primary=True, height=52)
+        buttons=BoxLayout(size_hint_y=None,height=dp(52),spacing=dp(10))
+        cancel=make_button("BATAL",height=52)
+        confirm=make_button("KONFIRMASI PEMBAYARAN",primary=True,height=52)
         buttons.add_widget(cancel); buttons.add_widget(confirm); content.add_widget(buttons)
 
-        popup = style_popup(Popup(title="Pembayaran", content=content, size_hint=(None,None),
-                                  size=(dp(600), dp(790)), auto_dismiss=False))
-        fit_popup(popup, content, min_width=dp(420), max_width=dp(700),
-                  min_height=dp(570), max_height_ratio=.97, extra_height=dp(70))
+        width=min(dp(560),Window.width*.92)
+        if method=="QRIS":
+            height=min(dp(560),Window.height*.76)
+        else:
+            height=min(dp(500),Window.height*.70)
+        popup=style_popup(Popup(
+            title="Pembayaran",content=content,size_hint=(None,None),size=(width,height),auto_dismiss=False
+        ))
         cancel.bind(on_release=popup.dismiss)
-        confirm.bind(on_release=lambda *_: (popup.dismiss(), complete_sale(account)))
+        def confirm_payment(*_):
+            # Close first; complete_sale owns database/printing flow.
+            popup.dismiss()
+            Clock.schedule_once(lambda *_dt: complete_sale(total,method,account),0.05)
+        confirm.bind(on_release=confirm_payment)
         popup.open()
 
 
