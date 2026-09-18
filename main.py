@@ -968,19 +968,22 @@ KV = r'''
                 size_hint_y: None
                 height: self.minimum_height
 
+                # -------------------------------------------------
+                # MENU LAINNYA
+                # -------------------------------------------------
                 Card:
                     orientation: "vertical"
                     size_hint_y: None
-                    height: self.minimum_height
+                    height: dp(116)
                     padding: dp(12)
                     spacing: dp(7)
                     Label:
                         text: "MENU LAINNYA"
                         color: (.40,.44,.51,1)
                         bold: True
-                        font_size: "13sp"
+                        font_size: "12sp"
                         size_hint_y: None
-                        height: dp(22)
+                        height: dp(20)
                         halign: "left"
                         text_size: self.size
                     BoxLayout:
@@ -994,19 +997,22 @@ KV = r'''
                             text: "LAPORAN    ›"
                             on_release: root.open_reports()
 
+                # -------------------------------------------------
+                # TOKO & STRUK
+                # -------------------------------------------------
                 Card:
                     orientation: "vertical"
                     size_hint_y: None
-                    height: self.minimum_height
+                    height: dp(300)
                     padding: dp(12)
-                    spacing: dp(8)
+                    spacing: dp(7)
                     Label:
                         text: "TOKO & STRUK"
                         color: (.40,.44,.51,1)
                         bold: True
-                        font_size: "13sp"
+                        font_size: "12sp"
                         size_hint_y: None
-                        height: dp(22)
+                        height: dp(20)
                         halign: "left"
                         text_size: self.size
                     OutlinedInput:
@@ -1014,30 +1020,30 @@ KV = r'''
                         hint_text: "Nama toko"
                         multiline: False
                         size_hint_y: None
-                        height: dp(44)
-                        padding: [dp(12),dp(10)]
+                        height: dp(42)
+                        padding: [dp(12),dp(9)]
                     OutlinedInput:
                         id: address
                         hint_text: "Alamat / kontak"
                         multiline: False
                         size_hint_y: None
-                        height: dp(44)
-                        padding: [dp(12),dp(10)]
+                        height: dp(42)
+                        padding: [dp(12),dp(9)]
                     OutlinedInput:
                         id: footer
                         hint_text: "Footer struk"
                         multiline: False
                         size_hint_y: None
-                        height: dp(44)
-                        padding: [dp(12),dp(10)]
+                        height: dp(42)
+                        padding: [dp(12),dp(9)]
                     BoxLayout:
                         size_hint_y: None
-                        height: dp(112)
+                        height: dp(104)
                         spacing: dp(10)
                         Card:
                             size_hint_x: None
-                            width: dp(104)
-                            padding: dp(7)
+                            width: dp(96)
+                            padding: dp(6)
                             Image:
                                 id: receipt_logo_preview
                                 source: ""
@@ -1045,7 +1051,7 @@ KV = r'''
                                 keep_ratio: True
                         BoxLayout:
                             orientation: "vertical"
-                            spacing: dp(6)
+                            spacing: dp(5)
                             Label:
                                 id: logo_status
                                 text: "Logo struk: belum dipilih"
@@ -1056,8 +1062,8 @@ KV = r'''
                                 text_size: self.size
                             BoxLayout:
                                 size_hint_y: None
-                                height: dp(40)
-                                spacing: dp(8)
+                                height: dp(38)
+                                spacing: dp(7)
                                 PrimaryButton:
                                     text: "+  PILIH LOGO"
                                     on_release: root.choose_receipt_logo()
@@ -1066,19 +1072,22 @@ KV = r'''
                                     danger: True
                                     on_release: root.remove_receipt_logo()
 
+                # -------------------------------------------------
+                # PEMBAYARAN
+                # -------------------------------------------------
                 Card:
                     orientation: "vertical"
                     size_hint_y: None
                     height: self.minimum_height
                     padding: dp(12)
-                    spacing: dp(8)
+                    spacing: dp(7)
                     Label:
                         text: "PEMBAYARAN"
                         color: (.40,.44,.51,1)
                         bold: True
-                        font_size: "13sp"
+                        font_size: "12sp"
                         size_hint_y: None
-                        height: dp(22)
+                        height: dp(20)
                         halign: "left"
                         text_size: self.size
 
@@ -1096,7 +1105,7 @@ KV = r'''
                         size_hint_y: None
                         height: dp(112)
                         padding: dp(8)
-                        spacing: dp(10)
+                        spacing: dp(9)
                         Card:
                             size_hint_x: None
                             width: dp(102)
@@ -1108,20 +1117,24 @@ KV = r'''
                                 keep_ratio: True
                         BoxLayout:
                             orientation: "vertical"
-                            spacing: dp(4)
+                            spacing: dp(3)
                             Label:
                                 id: qris_status
                                 text: "QRIS: belum dipasang"
                                 color: (.08,.55,.30,1)
                                 bold: True
                                 font_size: "10sp"
+                                size_hint_y: None
+                                height: dp(20)
                                 halign: "left"
                                 valign: "middle"
                                 text_size: self.size
                             Label:
-                                text: "Gunakan QRIS yang tersimpan untuk pembayaran."
+                                text: "Gunakan QRIS tersimpan untuk pembayaran."
                                 color: (.40,.44,.51,1)
                                 font_size: "10sp"
+                                size_hint_y: None
+                                height: dp(28)
                                 halign: "left"
                                 valign: "middle"
                                 text_size: self.size
@@ -1141,12 +1154,13 @@ KV = r'''
                         hint_text: "Instruksi QRIS"
                         multiline: False
                         size_hint_y: None
-                        height: dp(44)
+                        height: dp(42)
                         padding: [dp(10),dp(9)]
 
                     BoxLayout:
                         size_hint_y: None
-                        height: dp(30)
+                        height: dp(38)
+                        spacing: dp(8)
                         Label:
                             text: "TRANSFER BANK"
                             color: (.08,.11,.16,1)
@@ -1158,7 +1172,7 @@ KV = r'''
                         PrimaryButton:
                             text: "+ TAMBAH REKENING"
                             size_hint_x: None
-                            width: dp(170)
+                            width: dp(164)
                             height: dp(36)
                             on_release: root.add_bank_account()
                     GridLayout:
@@ -1170,7 +1184,8 @@ KV = r'''
 
                     BoxLayout:
                         size_hint_y: None
-                        height: dp(30)
+                        height: dp(38)
+                        spacing: dp(8)
                         Label:
                             text: "E-WALLET"
                             color: (.08,.11,.16,1)
@@ -1182,7 +1197,7 @@ KV = r'''
                         PrimaryButton:
                             text: "+ TAMBAH E-WALLET"
                             size_hint_x: None
-                            width: dp(170)
+                            width: dp(164)
                             height: dp(36)
                             on_release: root.add_wallet_account()
                     GridLayout:
@@ -1192,30 +1207,33 @@ KV = r'''
                         size_hint_y: None
                         height: self.minimum_height
 
+                # -------------------------------------------------
+                # OPERASIONAL
+                # -------------------------------------------------
                 Card:
                     orientation: "vertical"
                     size_hint_y: None
-                    height: self.minimum_height
+                    height: dp(250)
                     padding: dp(12)
-                    spacing: dp(8)
+                    spacing: dp(7)
                     Label:
                         text: "OPERASIONAL"
                         color: (.40,.44,.51,1)
                         bold: True
-                        font_size: "13sp"
+                        font_size: "12sp"
                         size_hint_y: None
-                        height: dp(22)
+                        height: dp(20)
                         halign: "left"
                         text_size: self.size
                     BoxLayout:
                         size_hint_y: None
-                        height: dp(44)
+                        height: dp(42)
                         spacing: dp(8)
                         OutlinedInput:
                             id: cashier
                             hint_text: "Nama kasir"
                             multiline: False
-                            padding: [dp(12),dp(10)]
+                            padding: [dp(12),dp(9)]
                         Spinner:
                             id: role
                             text: "Owner"
@@ -1224,23 +1242,23 @@ KV = r'''
                             width: dp(120)
                     BoxLayout:
                         size_hint_y: None
-                        height: dp(44)
+                        height: dp(42)
                         spacing: dp(8)
                         OutlinedInput:
                             id: tax
                             hint_text: "Pajak (%)"
                             input_filter: "float"
                             multiline: False
-                            padding: [dp(12),dp(10)]
+                            padding: [dp(10),dp(9)]
                         OutlinedInput:
                             id: low_stock
                             hint_text: "Batas stok menipis"
                             input_filter: "float"
                             multiline: False
-                            padding: [dp(12),dp(10)]
+                            padding: [dp(10),dp(9)]
                     BoxLayout:
                         size_hint_y: None
-                        height: dp(44)
+                        height: dp(42)
                         spacing: dp(8)
                         Label:
                             text: "Ukuran kertas"
@@ -1253,88 +1271,103 @@ KV = r'''
                             text: "58mm"
                             values: ["58mm","80mm"]
                             size_hint_x: None
-                            width: dp(110)
-                    PrimaryButton:
-                        text: "SIMPAN PENGATURAN"
-                        on_release: root.save()
+                            width: dp(120)
+                    BoxLayout:
+                        size_hint_y: None
+                        height: dp(42)
+                        spacing: dp(8)
+                        PrimaryButton:
+                            text: "SIMPAN PENGATURAN"
+                            on_release: root.save()
+                        SoftButton:
+                            text: "REFRESH"
+                            on_release: root.on_enter()
 
+                # -------------------------------------------------
+                # PRINTER
+                # -------------------------------------------------
                 Card:
                     orientation: "vertical"
                     size_hint_y: None
-                    height: self.minimum_height
+                    height: dp(236)
                     padding: dp(12)
-                    spacing: dp(8)
+                    spacing: dp(7)
                     Label:
-                        text: "PRINTER THERMAL"
+                        text: "PRINTER BLUETOOTH"
                         color: (.40,.44,.51,1)
                         bold: True
-                        font_size: "13sp"
+                        font_size: "12sp"
                         size_hint_y: None
-                        height: dp(22)
+                        height: dp(20)
                         halign: "left"
                         text_size: self.size
                     Label:
                         id: printer_status
                         text: "Printer: belum dipilih"
                         color: (.08,.11,.16,1)
-                        font_size: "10sp"
                         size_hint_y: None
-                        height: dp(30)
-                        halign: "center"
+                        height: dp(34)
+                        halign: "left"
                         valign: "middle"
                         text_size: self.size
-                    PrimaryButton:
-                        text: "PILIH PRINTER BLUETOOTH"
-                        on_release: root.open_printer()
-                    OutlineButton:
-                        text: "TEST PRINT"
-                        on_release: root.test_printer()
+                    BoxLayout:
+                        size_hint_y: None
+                        height: dp(44)
+                        spacing: dp(8)
+                        PrimaryButton:
+                            text: "PILIH PRINTER"
+                            on_release: root.open_printer()
+                        SoftButton:
+                            text: "TEST PRINT"
+                            on_release: root.test_printer()
                     Label:
-                        text: "Printer dipilih sekali dan digunakan untuk transaksi serta cetak ulang."
+                        text: "Printer dipilih sekali dan digunakan kembali untuk transaksi serta cetak ulang."
                         color: (.40,.44,.51,1)
                         font_size: "10sp"
                         size_hint_y: None
-                        height: dp(32)
-                        halign: "center"
+                        height: dp(34)
+                        halign: "left"
                         valign: "middle"
                         text_size: self.size
 
+                # -------------------------------------------------
+                # DATA & KEAMANAN
+                # -------------------------------------------------
                 Card:
                     orientation: "vertical"
                     size_hint_y: None
-                    height: self.minimum_height
+                    height: dp(196)
                     padding: dp(12)
-                    spacing: dp(8)
+                    spacing: dp(7)
                     Label:
                         text: "DATA & KEAMANAN"
                         color: (.40,.44,.51,1)
                         bold: True
-                        font_size: "13sp"
+                        font_size: "12sp"
                         size_hint_y: None
-                        height: dp(22)
+                        height: dp(20)
                         halign: "left"
                         text_size: self.size
                     BoxLayout:
                         size_hint_y: None
                         height: dp(42)
                         spacing: dp(8)
-                        OutlineButton:
+                        SoftButton:
                             text: "BACKUP DATABASE"
                             on_release: root.backup()
-                        OutlineButton:
-                            text: "RESTORE BACKUP"
-                            on_release: root.restore_backup()
+                        SoftButton:
+                            text: "CEK DATABASE"
+                            on_release: root.check_database()
                     BoxLayout:
                         size_hint_y: None
                         height: dp(42)
                         spacing: dp(8)
-                        OutlineButton:
-                            text: "CEK DATABASE"
-                            on_release: root.check_database()
-                        OutlineButton:
+                        SoftButton:
+                            text: "RESTORE BACKUP TERAKHIR"
+                            on_release: root.restore_backup()
+                        SoftButton:
                             text: "REFRESH DATA"
                             on_release: root.on_enter()
-
 
 BoxLayout:
 
@@ -2655,82 +2688,96 @@ class POSScreen(Screen):
         update()
 
     def open_account_selection_popup(self, method, total, accounts, on_selected):
+        kind_text = "rekening bank" if method == "Transfer" else "nomor e-wallet"
         content = BoxLayout(orientation="vertical", spacing=dp(8), padding=dp(12))
-        content.add_widget(text_label(
-            f"Total pembayaran\n{money(total)}\n\nPilih {('rekening bank' if method == 'Transfer' else 'nomor e-wallet')} tujuan.",
-            size=14, halign="center"
-        ))
+        intro = text_label(f"Total pembayaran\n{money(total)}\n\nPilih {kind_text} tujuan.", size=15, halign="center")
+        intro.size_hint_y = None; intro.height = dp(92)
+        content.add_widget(intro)
+
         scroll = ScrollView(do_scroll_x=False, size_hint_y=1, bar_width=dp(3))
-        rows = GridLayout(cols=1, spacing=dp(8), size_hint_y=None)
+        rows = GridLayout(cols=1, spacing=dp(7), size_hint_y=None)
         rows.bind(minimum_height=rows.setter("height"))
         scroll.add_widget(rows); content.add_widget(scroll)
-        close = make_button("BATAL", height=46); content.add_widget(close)
+
+        close = make_button("BATAL", height=44)
+        content.add_widget(close)
         popup = style_popup(Popup(
             title="Pilih Akun Pembayaran", content=content, size_hint=(None,None),
             size=(dp(430), dp(560)), auto_dismiss=True
         ))
-        fit_popup(popup, content, min_width=dp(350), max_width=dp(560),
-                  min_height=dp(430), max_height_ratio=.90, extra_height=dp(64))
+        fit_popup(popup, content, min_width=dp(350), max_width=dp(600),
+                  min_height=dp(430), max_height_ratio=.92, extra_height=dp(62))
         close.bind(on_release=popup.dismiss)
 
         for account in accounts:
-            card = Card(orientation="vertical", size_hint_y=None, height=dp(92), padding=dp(10), spacing=dp(2))
-            card.add_widget(text_label(safe_text(account["provider"]), size=14))
-            card.add_widget(text_label(safe_text(account["account_number"]), size=18, color=PRIMARY))
-            card.add_widget(text_label("a.n. " + safe_text(account["account_name"]), size=11, color=MUTED))
-            choose = make_button("PILIH", primary=True, height=36)
-            choose.size_hint_x = None; choose.width = dp(82)
-            # Overlay tombol lewat horizontal row agar detail tetap terbaca.
-            row = BoxLayout(size_hint_y=None, height=dp(38), spacing=dp(6))
-            row.add_widget(Widget()); row.add_widget(choose)
-            card.add_widget(row)
+            card = Card(orientation="horizontal", size_hint_y=None, height=dp(78), padding=dp(8), spacing=dp(8))
+            badge = Card(orientation="vertical", size_hint_x=None, width=dp(54), padding=dp(4), radius=dp(10))
+            badge_label = text_label(safe_text(account["provider"])[:6].upper(), size=9, color=PRIMARY, halign="center")
+            badge_label.bold = True; badge_label.valign = "middle"; badge_label.text_size = badge_label.size
+            badge.add_widget(badge_label); card.add_widget(badge)
+            info = BoxLayout(orientation="vertical", spacing=0)
+            p = text_label(safe_text(account["provider"]), size=11, color=PRIMARY, halign="left"); p.bold=True
+            num = text_label(safe_text(account["account_number"]), size=13, color=TEXT, halign="left")
+            holder = text_label("a.n. " + safe_text(account["account_name"]), size=9, color=MUTED, halign="left")
+            for lbl,h in ((p,18),(num,22),(holder,18)):
+                lbl.size_hint_y=None; lbl.height=dp(h); lbl.valign="middle"; lbl.text_size=lbl.size; info.add_widget(lbl)
+            card.add_widget(info)
+            choose = make_button("PILIH", primary=True, height=38); choose.size_hint_x=None; choose.width=dp(76)
+            card.add_widget(choose)
             choose.bind(on_release=lambda *_a, a=account: (popup.dismiss(), on_selected(a)))
             rows.add_widget(card)
         popup.open()
 
     def open_payment_confirmation(self, method, total, account, complete_sale):
-        content = BoxLayout(orientation="vertical", spacing=dp(10), padding=dp(16))
-        content.add_widget(Label(text="KONFIRMASI PEMBAYARAN", color=TEXT, font_size="19sp", bold=True,
-                                 size_hint_y=None, height=dp(34), halign="center"))
-        content.add_widget(Label(text="Total Pembayaran\n" + money(total), color=PRIMARY, font_size="23sp", bold=True,
-                                 size_hint_y=None, height=dp(72), halign="center", valign="middle"))
+        content = BoxLayout(orientation="vertical", spacing=dp(8), padding=dp(14))
+        title = Label(text="KONFIRMASI PEMBAYARAN", color=TEXT, font_size="18sp", bold=True,
+                      size_hint_y=None, height=dp(32), halign="center", valign="middle")
+        title.bind(size=lambda w,v: setattr(w,"text_size",v))
+        content.add_widget(title)
+        total_lbl = Label(text="Total Pembayaran\n" + money(total), color=PRIMARY, font_size="22sp", bold=True,
+                          size_hint_y=None, height=dp(68), halign="center", valign="middle")
+        total_lbl.bind(size=lambda w,v: setattr(w,"text_size",v)); content.add_widget(total_lbl)
 
         if method == "QRIS":
+            qr_card = Card(orientation="vertical", size_hint_y=None, height=dp(355), padding=dp(10), spacing=dp(6))
             image_path = self.app.resolve_image(self.app.db.setting("qris_image"))
             if image_path:
                 qr = Image(source=image_path, size_hint_y=None, height=dp(300), allow_stretch=True, keep_ratio=True)
-                qr.reload(); content.add_widget(qr)
+                qr.reload(); qr_card.add_widget(qr)
             else:
-                content.add_widget(Label(text="QRIS belum dipasang di Pengaturan.", color=DANGER, font_size="14sp",
-                                         size_hint_y=None, height=dp(90), halign="center", valign="middle"))
+                qr_card.add_widget(Label(text="QRIS belum dipasang di Pengaturan.", color=DANGER, font_size="14sp",
+                                         size_hint_y=None, height=dp(120), halign="center", valign="middle"))
             instruction = self.app.db.setting("qris_instruction") or "Scan QRIS lalu lakukan pembayaran sesuai total."
-            content.add_widget(Label(text=instruction, color=TEXT, font_size="13sp", size_hint_y=None,
-                                     height=dp(54), halign="center", valign="middle"))
+            ins = Label(text=instruction, color=TEXT, font_size="12sp", size_hint_y=None, height=dp(42), halign="center", valign="middle")
+            ins.bind(size=lambda w,v: setattr(w,"text_size",v)); qr_card.add_widget(ins)
+            content.add_widget(qr_card)
         elif method in ("Transfer", "E-Wallet") and account is not None:
-            box = Card(orientation="vertical", size_hint_y=None, height=dp(132), padding=dp(12), spacing=dp(3))
-            box.add_widget(Label(text=safe_text(account["provider"]), color=PRIMARY, font_size="19sp", bold=True))
-            box.add_widget(Label(text=safe_text(account["account_number"]), color=TEXT, font_size="20sp", bold=True))
-            box.add_widget(Label(text="a.n. " + safe_text(account["account_name"]), color=MUTED, font_size="13sp"))
-            content.add_widget(box)
+            box = Card(orientation="vertical", size_hint_y=None, height=dp(126), padding=dp(12), spacing=dp(2))
+            p = Label(text=safe_text(account["provider"]), color=PRIMARY, font_size="18sp", bold=True,
+                      size_hint_y=None, height=dp(28), halign="center")
+            n = Label(text=safe_text(account["account_number"]), color=TEXT, font_size="20sp", bold=True,
+                      size_hint_y=None, height=dp(32), halign="center")
+            h = Label(text="a.n. " + safe_text(account["account_name"]), color=MUTED, font_size="12sp",
+                      size_hint_y=None, height=dp(24), halign="center")
+            box.add_widget(p); box.add_widget(n); box.add_widget(h); content.add_widget(box)
             action = "transfer" if method == "Transfer" else "pembayaran"
-            content.add_widget(Label(text=f"Setelah {action} diterima, tekan KONFIRMASI PEMBAYARAN.", color=TEXT,
-                                     font_size="13sp", size_hint_y=None, height=dp(55), halign="center", valign="middle"))
+            info = Label(text=f"Setelah {action} diterima, tekan KONFIRMASI PEMBAYARAN.", color=TEXT,
+                         font_size="12sp", size_hint_y=None, height=dp(54), halign="center", valign="middle")
+            info.bind(size=lambda w,v: setattr(w,"text_size",v)); content.add_widget(info)
         else:
-            content.add_widget(Label(text="Pastikan pembayaran sudah diterima sebelum melanjutkan.", color=TEXT,
-                                     font_size="14sp", size_hint_y=None, height=dp(90), halign="center", valign="middle"))
+            info = Label(text="Pastikan pembayaran sudah diterima sebelum melanjutkan.", color=TEXT,
+                         font_size="13sp", size_hint_y=None, height=dp(86), halign="center", valign="middle")
+            info.bind(size=lambda w,v: setattr(w,"text_size",v)); content.add_widget(info)
 
-        buttons = BoxLayout(size_hint_y=None, height=dp(52), spacing=dp(10))
-        cancel = make_button("BATAL", height=52)
-        confirm = make_button("KONFIRMASI PEMBAYARAN", primary=True, height=52)
+        buttons = BoxLayout(size_hint_y=None, height=dp(50), spacing=dp(10))
+        cancel = make_button("BATAL", height=50)
+        confirm = make_button("KONFIRMASI PEMBAYARAN", primary=True, height=50)
         buttons.add_widget(cancel); buttons.add_widget(confirm); content.add_widget(buttons)
 
-        # Popup besar agar QRIS/akun terlihat jelas di layar HP.
-        popup = style_popup(Popup(
-            title="Pembayaran", content=content, size_hint=(None,None),
-            size=(dp(520), dp(700)), auto_dismiss=False
-        ))
-        fit_popup(popup, content, min_width=dp(390), max_width=dp(620),
-                  min_height=dp(520), max_height_ratio=.94, extra_height=dp(70))
+        popup = style_popup(Popup(title="Pembayaran", content=content, size_hint=(None,None),
+                                  size=(dp(520), dp(700)), auto_dismiss=False))
+        fit_popup(popup, content, min_width=dp(390), max_width=dp(680),
+                  min_height=dp(520), max_height_ratio=.95, extra_height=dp(70))
         cancel.bind(on_release=popup.dismiss)
         confirm.bind(on_release=lambda *_: (popup.dismiss(), complete_sale(account)))
         popup.open()
@@ -3448,7 +3495,7 @@ class SettingsScreen(Screen):
                 self.ids.qris_preview.reload()
             self.ids.qris_status.text = "QRIS: terpasang" if qris else "QRIS: belum dipasang"
             self.ids.qris_instruction.text = self.app.db.setting("qris_instruction") or "Scan QRIS lalu lakukan pembayaran sesuai total."
-            self.refresh_payment_accounts()
+            Clock.schedule_once(lambda *_dt: self.refresh_payment_accounts(), 0)
 
         except Exception as error:
 
@@ -3489,35 +3536,37 @@ class SettingsScreen(Screen):
                 box.clear_widgets()
                 accounts = self.app.db.payment_accounts(kind)
                 if not accounts:
-                    empty = Card(orientation="horizontal", size_hint_y=None, height=dp(52), padding=dp(10))
-                    empty.add_widget(text_label("Belum ada akun. Tekan tombol + TAMBAH.", size=10, color=MUTED))
+                    empty = Card(orientation="horizontal", size_hint_y=None, height=dp(46), padding=dp(9))
+                    empty.add_widget(text_label("Belum ada akun pembayaran.", size=10, color=MUTED, halign="left"))
                     box.add_widget(empty)
                     continue
 
                 for account in accounts:
-                    row = Card(orientation="horizontal", size_hint_y=None, height=dp(68), padding=dp(8), spacing=dp(8))
-                    info = BoxLayout(orientation="vertical", spacing=dp(1))
+                    row = Card(orientation="horizontal", size_hint_y=None, height=dp(72), padding=dp(7), spacing=dp(7))
+                    badge = Card(orientation="vertical", size_hint_x=None, width=dp(52), padding=dp(4), radius=dp(10))
+                    badge_label = text_label(safe_text(account["provider"])[:6].upper(), size=9, color=PRIMARY, halign="center")
+                    badge_label.bold = True
+                    badge_label.valign = "middle"
+                    badge_label.text_size = badge_label.size
+                    badge.add_widget(badge_label)
+                    row.add_widget(badge)
+
+                    info = BoxLayout(orientation="vertical", spacing=0)
                     provider = text_label(safe_text(account["provider"]), size=11, color=PRIMARY, halign="left")
                     provider.bold = True
                     number = text_label(safe_text(account["account_number"]), size=11, color=TEXT, halign="left")
                     holder = text_label("a.n. " + safe_text(account["account_name"]), size=9, color=MUTED, halign="left")
-                    for lbl in (provider, number, holder):
-                        lbl.size_hint_y = None
-                        lbl.height = dp(20 if lbl is not holder else 18)
-                        lbl.valign = "middle"
-                    info.add_widget(provider)
-                    info.add_widget(number)
-                    info.add_widget(holder)
+                    for lbl, h in ((provider, 19), (number, 20), (holder, 18)):
+                        lbl.size_hint_y = None; lbl.height = dp(h); lbl.valign = "middle"; lbl.text_size = lbl.size
+                        info.add_widget(lbl)
                     row.add_widget(info)
 
                     edit = OutlineButton(text="EDIT", size_hint_x=None, width=dp(58), height=dp(36))
                     remove = IconActionButton(icon_type="trash", danger=True)
-                    remove.width = dp(42)
-                    remove.height = dp(36)
+                    remove.width = dp(42); remove.height = dp(36)
                     edit.bind(on_release=lambda *_a, a=account: self.edit_payment_account(a))
                     remove.bind(on_release=lambda *_a, a=account: self.delete_payment_account(a))
-                    row.add_widget(edit)
-                    row.add_widget(remove)
+                    row.add_widget(edit); row.add_widget(remove)
                     box.add_widget(row)
         except Exception as error:
             self.app.log_error("PAYMENT_ACCOUNTS_REFRESH", error)
