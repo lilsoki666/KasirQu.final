@@ -94,7 +94,7 @@ def printer_text(value):
     """Normalisasi teks struk ke ASCII agar printer ESC/POS tidak mencetak mojibake."""
     try:
         s = safe_text(value)
-        replacements = {"Ã—":"x", "â€¢":"-", "Â·":"-", "â€“":"-", "â€”":"-", "â€¦":"...", "â€œ":'"', "â€":'"', "â€˜":"'", "â€™":"'"}
+        replacements = {"×":"x", "•":"-", "·":"-", "–":"-", "—":"-", "…":"...", "“":'"', "”":'"', "‘":"'", "’":"'"}
         for src, dst in replacements.items():
             s = s.replace(src, dst)
         s = unicodedata.normalize("NFKD", s)
@@ -119,12 +119,17 @@ class Card(BoxLayout):
         super().__init__(**kwargs)
 
         with self.canvas.before:
-            Color(*WHITE)
-
+            self._fill_color = Color(*WHITE)
             self._rect = RoundedRectangle(
                 pos=self.pos,
                 size=self.size,
                 radius=[self.radius]
+            )
+            self._border_color = Color(*BORDER)
+            from kivy.graphics import Line
+            self._border = Line(
+                rounded_rectangle=(self.x, self.y, self.width, self.height, self.radius),
+                width=0.8
             )
 
         self.bind(
@@ -135,6 +140,7 @@ class Card(BoxLayout):
     def _update_rect(self, *_):
         self._rect.pos = self.pos
         self._rect.size = self.size
+        self._border.rounded_rectangle = (self.x, self.y, self.width, self.height, self.radius)
 
 
 class OutlinedInput(TextInput):
@@ -160,6 +166,52 @@ class OutlinedInput(TextInput):
 
     def _update_border_color(self, *_):
         self._border_color.rgba = PRIMARY if self.focus else BORDER
+
+
+class IconActionButton(Button):
+    """Tombol ikon kecil untuk aksi + dan hapus tanpa ketergantungan font emoji."""
+    icon_type = StringProperty("plus")
+    danger = BooleanProperty(False)
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.background_normal = ""
+        self.background_down = ""
+        self.background_color = (0, 0, 0, 0)
+        self.size_hint_y = None
+        self.height = dp(38)
+        self.size_hint_x = None
+        self.width = dp(44)
+        with self.canvas.before:
+            self._bg_color = Color(*PRIMARY)
+            self._bg = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(8)])
+        with self.canvas.after:
+            self._icon_color = Color(*WHITE)
+            from kivy.graphics import Line
+            self._icon_a = Line(points=[], width=1.7)
+            self._icon_b = Line(points=[], width=1.7)
+            self._icon_c = Line(points=[], width=1.7)
+        self.bind(pos=self._update_icon, size=self._update_icon, icon_type=self._update_icon,
+                  danger=self._update_icon, state=self._update_icon)
+        self._update_icon()
+
+    def _update_icon(self, *_):
+        pressed = self.state == "down"
+        base = DANGER if self.danger else PRIMARY
+        if pressed:
+            base = (max(0, base[0]-0.04), max(0, base[1]-0.04), max(0, base[2]-0.04), 1)
+        self._bg_color.rgba = base
+        self._bg.pos = self.pos
+        self._bg.size = self.size
+        cx, cy = self.center
+        if self.icon_type == "trash":
+            self._icon_a.points = [cx-dp(8), cy+dp(7), cx+dp(8), cy+dp(7)]
+            self._icon_b.points = [cx-dp(6), cy+dp(5), cx-dp(5), cy-dp(7), cx+dp(5), cy-dp(7), cx+dp(6), cy+dp(5)]
+            self._icon_c.points = [cx-dp(3), cy+dp(10), cx+dp(3), cy+dp(10)]
+        else:
+            self._icon_a.points = [cx-dp(8), cy, cx+dp(8), cy]
+            self._icon_b.points = [cx, cy-dp(8), cx, cy+dp(8)]
+            self._icon_c.points = []
 
 
 class PillLabel(Label):
@@ -403,6 +455,23 @@ KV = r'''
     size_hint_y: None
 
     height: dp(44)
+
+
+<OutlineButton@Button>:
+    background_normal: ""
+    background_down: ""
+    background_color: (0,0,0,0)
+    color: (.12,.32,.78,1)
+    bold: True
+    font_size: "12sp"
+    size_hint_y: None
+    height: dp(44)
+    canvas.before:
+        Color:
+            rgba: (.12,.32,.78,1) if self.state != "down" else (.08,.24,.62,1)
+        Line:
+            rounded_rectangle: (self.x, self.y, self.width, self.height, dp(8))
+            width: 1.0
 
 
 <ScreenTitle@Label>:
@@ -853,8 +922,6 @@ KV = r'''
 <SettingsScreen>:
     BoxLayout:
         orientation: "vertical"
-        padding: dp(10)
-        spacing: dp(8)
         canvas.before:
             Color:
                 rgba: (.95,.97,.99,1)
@@ -862,10 +929,34 @@ KV = r'''
                 pos: self.pos
                 size: self.size
 
-        ScreenTitle:
-            text: "Pengaturan"
+        BoxLayout:
             size_hint_y: None
-            height: dp(48)
+            height: dp(56)
+            padding: [dp(16), 0, dp(16), 0]
+            canvas.before:
+                Color:
+                    rgba: (.10,.31,.76,1)
+                Rectangle:
+                    pos: self.pos
+                    size: self.size
+            Label:
+                text: app.db.setting("store_name") or "KasirQU"
+                color: 1,1,1,1
+                font_size: "18sp"
+                bold: True
+                halign: "left"
+                valign: "middle"
+                text_size: self.size
+            Label:
+                text: "PENGATURAN"
+                color: (1,1,1,.86)
+                font_size: "11sp"
+                bold: True
+                size_hint_x: None
+                width: dp(105)
+                halign: "right"
+                valign: "middle"
+                text_size: self.size
 
         ScrollView:
             do_scroll_x: False
@@ -873,16 +964,16 @@ KV = r'''
             BoxLayout:
                 orientation: "vertical"
                 spacing: dp(10)
-                padding: [dp(2), 0, dp(5), dp(14)]
+                padding: [dp(10), dp(10), dp(10), dp(16)]
                 size_hint_y: None
                 height: self.minimum_height
 
                 Card:
                     orientation: "vertical"
                     size_hint_y: None
-                    height: dp(142)
-                    padding: dp(14)
-                    spacing: dp(8)
+                    height: self.minimum_height
+                    padding: dp(12)
+                    spacing: dp(7)
                     Label:
                         text: "MENU LAINNYA"
                         color: (.40,.44,.51,1)
@@ -896,26 +987,18 @@ KV = r'''
                         size_hint_y: None
                         height: dp(48)
                         spacing: dp(8)
-                        SoftButton:
-                            text: "RIWAYAT TRANSAKSI"
+                        OutlineButton:
+                            text: "RIWAYAT TRANSAKSI    ›"
                             on_release: root.open_transactions()
-                        SoftButton:
-                            text: "LAPORAN"
+                        OutlineButton:
+                            text: "LAPORAN    ›"
                             on_release: root.open_reports()
-                    Label:
-                        text: "Riwayat dan laporan hanya dibuka dari Pengaturan."
-                        color: (.40,.44,.51,1)
-                        font_size: "10sp"
-                        size_hint_y: None
-                        height: dp(24)
-                        halign: "left"
-                        text_size: self.size
 
                 Card:
                     orientation: "vertical"
                     size_hint_y: None
-                    height: dp(342)
-                    padding: dp(14)
+                    height: self.minimum_height
+                    padding: dp(12)
                     spacing: dp(8)
                     Label:
                         text: "TOKO & STRUK"
@@ -928,7 +1011,7 @@ KV = r'''
                         text_size: self.size
                     OutlinedInput:
                         id: store
-                        hint_text: "Nama usaha"
+                        hint_text: "Nama toko"
                         multiline: False
                         size_hint_y: None
                         height: dp(44)
@@ -949,12 +1032,12 @@ KV = r'''
                         padding: [dp(12),dp(10)]
                     BoxLayout:
                         size_hint_y: None
-                        height: dp(98)
+                        height: dp(112)
                         spacing: dp(10)
                         Card:
                             size_hint_x: None
-                            width: dp(92)
-                            padding: dp(5)
+                            width: dp(104)
+                            padding: dp(7)
                             Image:
                                 id: receipt_logo_preview
                                 source: ""
@@ -962,32 +1045,33 @@ KV = r'''
                                 keep_ratio: True
                         BoxLayout:
                             orientation: "vertical"
-                            spacing: dp(5)
+                            spacing: dp(6)
                             Label:
                                 id: logo_status
                                 text: "Logo struk: belum dipilih"
-                                color: (.25,.29,.36,1)
+                                color: (.40,.44,.51,1)
                                 font_size: "10sp"
                                 halign: "left"
                                 valign: "middle"
                                 text_size: self.size
                             BoxLayout:
                                 size_hint_y: None
-                                height: dp(38)
-                                spacing: dp(6)
-                                SoftButton:
-                                    text: "PILIH LOGO"
+                                height: dp(40)
+                                spacing: dp(8)
+                                PrimaryButton:
+                                    text: "+  PILIH LOGO"
                                     on_release: root.choose_receipt_logo()
-                                SoftButton:
-                                    text: "HAPUS"
+                                IconActionButton:
+                                    icon_type: "trash"
+                                    danger: True
                                     on_release: root.remove_receipt_logo()
 
                 Card:
                     orientation: "vertical"
                     size_hint_y: None
-                    height: dp(420)
-                    padding: dp(14)
-                    spacing: dp(7)
+                    height: self.minimum_height
+                    padding: dp(12)
+                    spacing: dp(8)
                     Label:
                         text: "PEMBAYARAN"
                         color: (.40,.44,.51,1)
@@ -997,22 +1081,26 @@ KV = r'''
                         height: dp(22)
                         halign: "left"
                         text_size: self.size
+
                     Label:
                         text: "QRIS"
                         color: (.08,.11,.16,1)
                         bold: True
+                        font_size: "11sp"
                         size_hint_y: None
-                        height: dp(20)
+                        height: dp(18)
                         halign: "left"
                         text_size: self.size
-                    BoxLayout:
+                    Card:
+                        orientation: "horizontal"
                         size_hint_y: None
-                        height: dp(82)
-                        spacing: dp(8)
+                        height: dp(112)
+                        padding: dp(8)
+                        spacing: dp(10)
                         Card:
                             size_hint_x: None
-                            width: dp(82)
-                            padding: dp(4)
+                            width: dp(102)
+                            padding: dp(5)
                             Image:
                                 id: qris_preview
                                 source: ""
@@ -1020,88 +1108,96 @@ KV = r'''
                                 keep_ratio: True
                         BoxLayout:
                             orientation: "vertical"
-                            spacing: dp(5)
+                            spacing: dp(4)
                             Label:
                                 id: qris_status
                                 text: "QRIS: belum dipasang"
+                                color: (.08,.55,.30,1)
+                                bold: True
+                                font_size: "10sp"
+                                halign: "left"
+                                valign: "middle"
+                                text_size: self.size
+                            Label:
+                                text: "Gunakan QRIS yang tersimpan untuk pembayaran."
                                 color: (.40,.44,.51,1)
                                 font_size: "10sp"
                                 halign: "left"
+                                valign: "middle"
                                 text_size: self.size
                             BoxLayout:
                                 size_hint_y: None
-                                height: dp(36)
-                                spacing: dp(6)
-                                SoftButton:
-                                    text: "PILIH QRIS"
+                                height: dp(38)
+                                spacing: dp(7)
+                                PrimaryButton:
+                                    text: "+  PILIH QRIS"
                                     on_release: root.choose_qris()
-                                SoftButton:
-                                    text: "HAPUS"
+                                IconActionButton:
+                                    icon_type: "trash"
+                                    danger: True
                                     on_release: root.remove_qris()
                     OutlinedInput:
                         id: qris_instruction
                         hint_text: "Instruksi QRIS"
                         multiline: False
                         size_hint_y: None
-                        height: dp(42)
+                        height: dp(44)
                         padding: [dp(10),dp(9)]
-                    Label:
-                        text: "TRANSFER BANK"
-                        color: (.08,.11,.16,1)
-                        bold: True
-                        size_hint_y: None
-                        height: dp(20)
-                        halign: "left"
-                        text_size: self.size
+
                     BoxLayout:
                         size_hint_y: None
-                        height: dp(36)
+                        height: dp(30)
+                        Label:
+                            text: "TRANSFER BANK"
+                            color: (.08,.11,.16,1)
+                            bold: True
+                            font_size: "11sp"
+                            halign: "left"
+                            valign: "middle"
+                            text_size: self.size
                         PrimaryButton:
                             text: "+ TAMBAH REKENING"
+                            size_hint_x: None
+                            width: dp(170)
+                            height: dp(36)
                             on_release: root.add_bank_account()
-                    ScrollView:
-                        do_scroll_x: False
+                    GridLayout:
+                        id: bank_accounts
+                        cols: 1
+                        spacing: dp(6)
                         size_hint_y: None
-                        height: dp(82)
-                        bar_width: dp(2)
-                        GridLayout:
-                            id: bank_accounts
-                            cols: 1
-                            spacing: dp(5)
-                            size_hint_y: None
-                            height: self.minimum_height
-                    Label:
-                        text: "E-WALLET"
-                        color: (.08,.11,.16,1)
-                        bold: True
-                        size_hint_y: None
-                        height: dp(20)
-                        halign: "left"
-                        text_size: self.size
+                        height: self.minimum_height
+
                     BoxLayout:
                         size_hint_y: None
-                        height: dp(36)
+                        height: dp(30)
+                        Label:
+                            text: "E-WALLET"
+                            color: (.08,.11,.16,1)
+                            bold: True
+                            font_size: "11sp"
+                            halign: "left"
+                            valign: "middle"
+                            text_size: self.size
                         PrimaryButton:
                             text: "+ TAMBAH E-WALLET"
+                            size_hint_x: None
+                            width: dp(170)
+                            height: dp(36)
                             on_release: root.add_wallet_account()
-                    ScrollView:
-                        do_scroll_x: False
+                    GridLayout:
+                        id: wallet_accounts
+                        cols: 1
+                        spacing: dp(6)
                         size_hint_y: None
-                        height: dp(82)
-                        bar_width: dp(2)
-                        GridLayout:
-                            id: wallet_accounts
-                            cols: 1
-                            spacing: dp(5)
-                            size_hint_y: None
-                            height: self.minimum_height
+                        height: self.minimum_height
 
                 Card:
                     orientation: "vertical"
                     size_hint_y: None
-                    height: dp(260)
-                    padding: dp(14)
-                    spacing: dp(7)
+                    height: self.minimum_height
+                    padding: dp(12)
+                    spacing: dp(8)
                     Label:
                         text: "OPERASIONAL"
                         color: (.40,.44,.51,1)
@@ -1158,32 +1254,57 @@ KV = r'''
                             values: ["58mm","80mm"]
                             size_hint_x: None
                             width: dp(110)
-                    BoxLayout:
+                    PrimaryButton:
+                        text: "SIMPAN PENGATURAN"
+                        on_release: root.save()
+
+                Card:
+                    orientation: "vertical"
+                    size_hint_y: None
+                    height: self.minimum_height
+                    padding: dp(12)
+                    spacing: dp(8)
+                    Label:
+                        text: "PRINTER THERMAL"
+                        color: (.40,.44,.51,1)
+                        bold: True
+                        font_size: "13sp"
                         size_hint_y: None
-                        height: dp(44)
-                        spacing: dp(7)
-                        SoftButton:
-                            text: "PILIH PRINTER"
-                            on_release: root.open_printer()
-                        SoftButton:
-                            text: "TEST PRINT"
-                            on_release: root.test_printer()
+                        height: dp(22)
+                        halign: "left"
+                        text_size: self.size
                     Label:
                         id: printer_status
                         text: "Printer: belum dipilih"
+                        color: (.08,.11,.16,1)
+                        font_size: "10sp"
+                        size_hint_y: None
+                        height: dp(30)
+                        halign: "center"
+                        valign: "middle"
+                        text_size: self.size
+                    PrimaryButton:
+                        text: "PILIH PRINTER BLUETOOTH"
+                        on_release: root.open_printer()
+                    OutlineButton:
+                        text: "TEST PRINT"
+                        on_release: root.test_printer()
+                    Label:
+                        text: "Printer dipilih sekali dan digunakan untuk transaksi serta cetak ulang."
                         color: (.40,.44,.51,1)
                         font_size: "10sp"
                         size_hint_y: None
-                        height: dp(22)
+                        height: dp(32)
                         halign: "center"
+                        valign: "middle"
                         text_size: self.size
 
                 Card:
                     orientation: "vertical"
                     size_hint_y: None
-                    height: dp(206)
-                    padding: dp(14)
-                    spacing: dp(7)
+                    height: self.minimum_height
+                    padding: dp(12)
+                    spacing: dp(8)
                     Label:
                         text: "DATA & KEAMANAN"
                         color: (.40,.44,.51,1)
@@ -1195,27 +1316,24 @@ KV = r'''
                         text_size: self.size
                     BoxLayout:
                         size_hint_y: None
-                        height: dp(40)
-                        spacing: dp(7)
-                        SoftButton:
+                        height: dp(42)
+                        spacing: dp(8)
+                        OutlineButton:
                             text: "BACKUP DATABASE"
                             on_release: root.backup()
-                        SoftButton:
+                        OutlineButton:
                             text: "RESTORE BACKUP"
                             on_release: root.restore_backup()
                     BoxLayout:
                         size_hint_y: None
-                        height: dp(40)
-                        spacing: dp(7)
-                        SoftButton:
+                        height: dp(42)
+                        spacing: dp(8)
+                        OutlineButton:
                             text: "CEK DATABASE"
                             on_release: root.check_database()
-                        SoftButton:
+                        OutlineButton:
                             text: "REFRESH DATA"
                             on_release: root.on_enter()
-                    PrimaryButton:
-                        text: "SIMPAN PENGATURAN"
-                        on_release: root.save()
 
 
 BoxLayout:
@@ -3371,17 +3489,35 @@ class SettingsScreen(Screen):
                 box.clear_widgets()
                 accounts = self.app.db.payment_accounts(kind)
                 if not accounts:
-                    box.add_widget(text_label("Belum ada data. Tekan tombol tambah.", size=10, color=MUTED))
+                    empty = Card(orientation="horizontal", size_hint_y=None, height=dp(52), padding=dp(10))
+                    empty.add_widget(text_label("Belum ada akun. Tekan tombol + TAMBAH.", size=10, color=MUTED))
+                    box.add_widget(empty)
                     continue
+
                 for account in accounts:
-                    row = Card(orientation="horizontal", size_hint_y=None, height=dp(48), padding=dp(7), spacing=dp(6))
-                    info = text_label(f'{account["provider"]}  |  {account["account_number"]}  |  a.n. {account["account_name"]}', size=10)
+                    row = Card(orientation="horizontal", size_hint_y=None, height=dp(68), padding=dp(8), spacing=dp(8))
+                    info = BoxLayout(orientation="vertical", spacing=dp(1))
+                    provider = text_label(safe_text(account["provider"]), size=11, color=PRIMARY, halign="left")
+                    provider.bold = True
+                    number = text_label(safe_text(account["account_number"]), size=11, color=TEXT, halign="left")
+                    holder = text_label("a.n. " + safe_text(account["account_name"]), size=9, color=MUTED, halign="left")
+                    for lbl in (provider, number, holder):
+                        lbl.size_hint_y = None
+                        lbl.height = dp(20 if lbl is not holder else 18)
+                        lbl.valign = "middle"
+                    info.add_widget(provider)
+                    info.add_widget(number)
+                    info.add_widget(holder)
                     row.add_widget(info)
-                    edit = make_button("EDIT", primary=True, height=34); edit.size_hint_x=None; edit.width=dp(54)
-                    remove = make_button("HAPUS", height=34); remove.size_hint_x=None; remove.width=dp(58); remove.background_color=DANGER; remove.color=WHITE
+
+                    edit = OutlineButton(text="EDIT", size_hint_x=None, width=dp(58), height=dp(36))
+                    remove = IconActionButton(icon_type="trash", danger=True)
+                    remove.width = dp(42)
+                    remove.height = dp(36)
                     edit.bind(on_release=lambda *_a, a=account: self.edit_payment_account(a))
                     remove.bind(on_release=lambda *_a, a=account: self.delete_payment_account(a))
-                    row.add_widget(edit); row.add_widget(remove)
+                    row.add_widget(edit)
+                    row.add_widget(remove)
                     box.add_widget(row)
         except Exception as error:
             self.app.log_error("PAYMENT_ACCOUNTS_REFRESH", error)
