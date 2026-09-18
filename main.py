@@ -554,7 +554,7 @@ KV = r'''
                 Label:
                     id: cart_count
                     text: "0 item"
-                    color: TEXT
+                    color: (.08,.11,.16,1)
                     font_size: "11sp"
                     bold: True
                     size_hint_x: .28
@@ -564,7 +564,7 @@ KV = r'''
                 Label:
                     id: cart_total
                     text: "Rp 0"
-                    color: PRIMARY
+                    color: (.12,.32,.78,1)
                     font_size: "16sp"
                     bold: True
                     size_hint_x: .42
@@ -597,7 +597,7 @@ KV = r'''
                 Label:
                     id: count
                     text: "Produk (0 Item)"
-                    color: TEXT
+                    color: (.08,.11,.16,1)
                     font_size: "20sp"
                     bold: True
                     halign: "left"
@@ -667,7 +667,7 @@ KV = r'''
                 Label:
                     id: count
                     text: "Transaksi (0)"
-                    color: TEXT
+                    color: (.08,.11,.16,1)
                     font_size: "20sp"
                     bold: True
                     halign: "left"
@@ -732,7 +732,7 @@ KV = r'''
                     spacing: dp(4)
                     Label:
                         text: "Periode"
-                        color: MUTED
+                        color: (.40,.44,.51,1)
                         font_size: "10sp"
                         bold: True
                         size_hint_y: None
@@ -742,7 +742,7 @@ KV = r'''
                     Label:
                         id: period
                         text: "Hari ini"
-                        color: TEXT
+                        color: (.08,.11,.16,1)
                         font_size: "12sp"
                         halign: "left"
                         text_size: self.size
@@ -755,12 +755,12 @@ KV = r'''
                         padding: dp(9)
                         Label:
                             text: "Total Transaksi"
-                            color: MUTED
+                            color: (.40,.44,.51,1)
                             font_size: "9sp"
                         Label:
                             id: report_count
                             text: "0"
-                            color: TEXT
+                            color: (.08,.11,.16,1)
                             font_size: "19sp"
                             bold: True
                     Card:
@@ -768,12 +768,12 @@ KV = r'''
                         padding: dp(9)
                         Label:
                             text: "Total Pendapatan"
-                            color: MUTED
+                            color: (.40,.44,.51,1)
                             font_size: "9sp"
                         Label:
                             id: report_total
                             text: "Rp 0"
-                            color: PRIMARY
+                            color: (.12,.32,.78,1)
                             font_size: "15sp"
                             bold: True
                 Card:
@@ -783,7 +783,7 @@ KV = r'''
                     padding: dp(12)
                     Label:
                         text: "RINCIAN"
-                        color: MUTED
+                        color: (.40,.44,.51,1)
                         bold: True
                         font_size: "10sp"
                         size_hint_y: None
@@ -832,7 +832,7 @@ KV = r'''
                     spacing: dp(7)
                     Label:
                         text: "MENU LAINNYA"
-                        color: MUTED
+                        color: (.40,.44,.51,1)
                         bold: True
                         font_size: "11sp"
                         size_hint_y: None
@@ -857,7 +857,7 @@ KV = r'''
                     spacing: dp(6)
                     Label:
                         text: "TOKO & STRUK"
-                        color: MUTED
+                        color: (.40,.44,.51,1)
                         bold: True
                         font_size: "11sp"
                         size_hint_y: None
@@ -901,7 +901,7 @@ KV = r'''
                             Label:
                                 id: logo_status
                                 text: "Logo struk: belum dipilih"
-                                color: MUTED
+                                color: (.40,.44,.51,1)
                                 font_size: "9sp"
                                 halign: "left"
                                 text_size: self.size
@@ -924,7 +924,7 @@ KV = r'''
                     spacing: dp(7)
                     Label:
                         text: "PEMBAYARAN"
-                        color: MUTED
+                        color: (.40,.44,.51,1)
                         bold: True
                         font_size: "11sp"
                         size_hint_y: None
@@ -939,7 +939,7 @@ KV = r'''
                         spacing: dp(5)
                         Label:
                             text: "QRIS"
-                            color: TEXT
+                            color: (.08,.11,.16,1)
                             bold: True
                             font_size: "11sp"
                             size_hint_y: None
@@ -964,13 +964,13 @@ KV = r'''
                                 Label:
                                     id: qris_status
                                     text: "QRIS: belum dipasang"
-                                    color: SUCCESS
+                                    color: (.08,.55,.30,1)
                                     font_size: "10sp"
                                     bold: True
                                     text_size: self.size
                                 Label:
                                     text: "QRIS digunakan saat pembayaran."
-                                    color: MUTED
+                                    color: (.40,.44,.51,1)
                                     font_size: "9sp"
                                     text_size: self.size
                                 BoxLayout:
@@ -995,7 +995,7 @@ KV = r'''
                         height: dp(38)
                         Label:
                             text: "TRANSFER BANK"
-                            color: TEXT
+                            color: (.08,.11,.16,1)
                             bold: True
                             font_size: "10sp"
                             halign: "left"
@@ -1016,7 +1016,7 @@ KV = r'''
                         height: dp(38)
                         Label:
                             text: "E-WALLET"
-                            color: TEXT
+                            color: (.08,.11,.16,1)
                             bold: True
                             font_size: "10sp"
                             halign: "left"
@@ -1040,7 +1040,7 @@ KV = r'''
                     spacing: dp(6)
                     Label:
                         text: "OPERASIONAL"
-                        color: MUTED
+                        color: (.40,.44,.51,1)
                         bold: True
                         font_size: "11sp"
                         size_hint_y: None
@@ -1098,7 +1098,7 @@ KV = r'''
                     spacing: dp(6)
                     Label:
                         text: "PRINTER BLUETOOTH"
-                        color: MUTED
+                        color: (.40,.44,.51,1)
                         bold: True
                         font_size: "11sp"
                         size_hint_y: None
@@ -1107,7 +1107,7 @@ KV = r'''
                     Label:
                         id: printer_status
                         text: "Printer: belum dipilih"
-                        color: TEXT
+                        color: (.08,.11,.16,1)
                         font_size: "11sp"
                         size_hint_y: None
                         height: dp(26)
@@ -1125,7 +1125,7 @@ KV = r'''
                             on_release: root.test_printer()
                     Label:
                         text: "Printer dipilih sekali untuk transaksi dan cetak ulang."
-                        color: MUTED
+                        color: (.40,.44,.51,1)
                         font_size: "9sp"
                         text_size: self.size
                 Card:
@@ -1136,7 +1136,7 @@ KV = r'''
                     spacing: dp(6)
                     Label:
                         text: "DATA & KEAMANAN"
-                        color: MUTED
+                        color: (.40,.44,.51,1)
                         bold: True
                         font_size: "11sp"
                         size_hint_y: None
