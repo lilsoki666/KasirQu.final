@@ -416,46 +416,44 @@ class SwipeManager(ScreenManager):
 KV = r'''
 #:import dp kivy.metrics.dp
 
-
 <PrimaryButton@Button>:
-
     background_normal: ""
-
     background_down: ""
-
-    background_color:
-        (.08,.24,.62,1) if self.state == "down" else (.12,.32,.78,1)
-
+    background_color: (0,0,0,0)
     color: 1,1,1,1
-
     bold: True
-
-    font_size: "14sp"
-
+    font_size: "12sp"
     size_hint_y: None
-
-    height: dp(46)
-
+    height: dp(44)
+    canvas.before:
+        Color:
+            rgba: (.08,.24,.62,1) if self.state == "down" else (.12,.32,.78,1)
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [dp(8)]
 
 <SoftButton@Button>:
-
     background_normal: ""
-
     background_down: ""
-
-    background_color:
-        (.88,.91,.96,1) if self.state == "down" else (1,1,1,1)
-
+    background_color: (0,0,0,0)
     color: (.08,.11,.16,1)
-
     bold: True
-
-    font_size: "13sp"
-
+    font_size: "11sp"
     size_hint_y: None
-
     height: dp(44)
-
+    canvas.before:
+        Color:
+            rgba: (.95,.97,1,1) if self.state == "down" else (1,1,1,1)
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [dp(8)]
+        Color:
+            rgba: (.88,.90,.94,1)
+        Line:
+            rounded_rectangle: (self.x,self.y,self.width,self.height,dp(8))
+            width: 1
 
 <OutlineButton@Button>:
     background_normal: ""
@@ -463,481 +461,42 @@ KV = r'''
     background_color: (0,0,0,0)
     color: (.12,.32,.78,1)
     bold: True
-    font_size: "12sp"
+    font_size: "11sp"
     size_hint_y: None
-    height: dp(44)
+    height: dp(42)
     canvas.before:
         Color:
-            rgba: (.12,.32,.78,1) if self.state != "down" else (.08,.24,.62,1)
+            rgba: (.12,.32,.78,1)
         Line:
-            rounded_rectangle: (self.x, self.y, self.width, self.height, dp(8))
-            width: 1.0
-
+            rounded_rectangle: (self.x,self.y,self.width,self.height,dp(8))
+            width: 1
 
 <ScreenTitle@Label>:
-
     color: (.07,.09,.13,1)
-
-    font_size: "22sp"
-
+    font_size: "21sp"
     bold: True
-
-    halign: "center"
-
+    halign: "left"
     valign: "middle"
-
     text_size: self.size
-
-
-<NavButton@Button>:
-
-    background_normal: ""
-
-    background_down: ""
-
-    background_color:
-        (.12,.32,.78,1) if self.state == "down" else (1,1,1,1)
-
-    color:
-        (1,1,1,1) if self.state == "down" else (.25,.29,.36,1)
-
-    font_size: "11sp"
-
-    bold: True
-
-    halign: "center"
-
-    valign: "middle"
-
-    text_size: self.size
-
 
 <POSScreen>:
-
     BoxLayout:
         orientation: "vertical"
         spacing: 0
         canvas.before:
             Color:
-                rgba: (.95,.97,.99,1)
+                rgba: (.96,.98,1,1)
             Rectangle:
                 pos: self.pos
                 size: self.size
-
         BoxLayout:
             size_hint_y: None
-            height: dp(60)
-            padding: [dp(16), 0, dp(12), 0]
+            height: dp(58)
+            padding: [dp(14),0,dp(12),0]
+            spacing: dp(7)
             canvas.before:
                 Color:
-                    rgba: (.10,.31,.76,1)
-                Rectangle:
-                    pos: self.pos
-                    size: self.size
-            Label:
-                text: app.db.setting("store_name") or "KasirQU"
-                color: 1,1,1,1
-                font_size: "18sp"
-                bold: True
-                halign: "left"
-                valign: "middle"
-                text_size: self.size
-            Label:
-                text: "KASIR"
-                color: (1,1,1,.82)
-                font_size: "11sp"
-                bold: True
-                size_hint_x: None
-                width: dp(60)
-                halign: "right"
-                valign: "middle"
-                text_size: self.size
-
-        BoxLayout:
-            orientation: "vertical"
-            padding: [dp(12), dp(10), dp(12), dp(8)]
-            spacing: dp(8)
-
-            BoxLayout:
-                size_hint_y: None
-                height: dp(42)
-                Label:
-                    text: "Kasir"
-                    color: (.08,.11,.16,1)
-                    font_size: "22sp"
-                    bold: True
-                    halign: "left"
-                    valign: "middle"
-                    text_size: self.size
-                Label:
-                    text: ""
-
-            BoxLayout:
-                size_hint_y: None
-                height: dp(46)
-                spacing: dp(7)
-                TextInput:
-                    id: search
-                    hint_text: "Cari produk / scan barcode..."
-                    multiline: False
-                    padding: [dp(12), dp(10)]
-                    background_normal: ""
-                    background_color: 1,1,1,1
-                    foreground_color: (.08,.11,.16,1)
-                    cursor_color: (.12,.32,.78,1)
-                    on_text: root.refresh_products(self.text)
-                    on_text_validate: root.quick_add_by_code(self.text)
-                PrimaryButton:
-                    text: "+"
-                    size_hint_x: None
-                    width: dp(46)
-                    on_release: root.open_cart_popup()
-
-            Label:
-                text: "Pilih Produk"
-                color: (.40,.44,.51,1)
-                font_size: "13sp"
-                bold: True
-                size_hint_y: None
-                height: dp(22)
-                halign: "left"
-                text_size: self.size
-
-            ScrollView:
-                do_scroll_x: False
-                bar_width: dp(3)
-                GridLayout:
-                    id: products
-                    cols: 4
-                    spacing: dp(8)
-                    padding: dp(1)
-                    size_hint_y: None
-                    height: self.minimum_height
-
-            Card:
-                orientation: "horizontal"
-                size_hint_y: None
-                height: dp(64)
-                padding: dp(8)
-                spacing: dp(8)
-                Label:
-                    id: cart_count
-                    text: "0 item"
-                    color: (.08,.11,.16,1)
-                    bold: True
-                    size_hint_x: .30
-                    halign: "left"
-                    valign: "middle"
-                    text_size: self.size
-                Label:
-                    id: cart_total
-                    text: "Rp 0"
-                    color: (.12,.32,.78,1)
-                    font_size: "18sp"
-                    bold: True
-                    size_hint_x: .40
-                    halign: "right"
-                    valign: "middle"
-                    text_size: self.size
-                PrimaryButton:
-                    text: "KERANJANG"
-                    size_hint_x: .30
-                    on_release: root.open_cart_popup()
-
-
-<ProductScreen>:
-    BoxLayout:
-        orientation: "vertical"
-        spacing: 0
-        canvas.before:
-            Color:
-                rgba: (.95,.97,.99,1)
-            Rectangle:
-                pos: self.pos
-                size: self.size
-
-        BoxLayout:
-            size_hint_y: None
-            height: dp(60)
-            padding: [dp(16), 0, dp(12), 0]
-            canvas.before:
-                Color:
-                    rgba: (.10,.31,.76,1)
-                Rectangle:
-                    pos: self.pos
-                    size: self.size
-            Label:
-                text: app.db.setting("store_name") or "KasirQU"
-                color: 1,1,1,1
-                font_size: "18sp"
-                bold: True
-                halign: "left"
-                valign: "middle"
-                text_size: self.size
-            Label:
-                text: "PRODUK"
-                color: (1,1,1,.82)
-                font_size: "11sp"
-                bold: True
-                size_hint_x: None
-                width: dp(64)
-                halign: "right"
-                valign: "middle"
-                text_size: self.size
-
-        BoxLayout:
-            orientation: "vertical"
-            padding: [dp(12), dp(9), dp(12), dp(8)]
-            spacing: dp(8)
-
-            BoxLayout:
-                size_hint_y: None
-                height: dp(42)
-                Label:
-                    id: count
-                    text: "Produk (0 Item)"
-                    color: (.08,.11,.16,1)
-                    font_size: "21sp"
-                    bold: True
-                    halign: "left"
-                    valign: "middle"
-                    text_size: self.size
-                PrimaryButton:
-                    text: "Tambah +"
-                    size_hint_x: None
-                    width: dp(112)
-                    on_release: root.open_editor()
-
-            BoxLayout:
-                size_hint_y: None
-                height: dp(44)
-                spacing: dp(7)
-                TextInput:
-                    id: search
-                    hint_text: "Cari produk, SKU, kategori..."
-                    multiline: False
-                    padding: [dp(12), dp(9)]
-                    background_normal: ""
-                    background_color: (1,1,1,1)
-                    foreground_color: (.08,.11,.16,1)
-                    cursor_color: (.12,.32,.78,1)
-                    on_text: root.refresh(self.text, root.category_filter)
-                SoftButton:
-                    text: "FILTER"
-                    size_hint_x: None
-                    width: dp(82)
-                    on_release: root.toggle_categories()
-
-            ScrollView:
-                size_hint_y: None
-                height: dp(38)
-                do_scroll_y: False
-                bar_width: 0
-                GridLayout:
-                    id: categories
-                    rows: 1
-                    spacing: dp(6)
-                    size_hint_x: None
-                    width: self.minimum_width
-                    size_hint_y: None
-                    height: dp(34)
-
-            ScrollView:
-                do_scroll_x: False
-                bar_width: dp(3)
-                GridLayout:
-                    id: list
-                    cols: 1
-                    spacing: dp(8)
-                    padding: dp(1)
-                    size_hint_y: None
-                    height: self.minimum_height
-
-
-<TransactionScreen>:
-    BoxLayout:
-        orientation: "vertical"
-        spacing: 0
-        canvas.before:
-            Color:
-                rgba: (.95,.97,.99,1)
-            Rectangle:
-                pos: self.pos
-                size: self.size
-
-        BoxLayout:
-            size_hint_y: None
-            height: dp(60)
-            padding: [dp(16), 0, dp(12), 0]
-            canvas.before:
-                Color:
-                    rgba: (.10,.31,.76,1)
-                Rectangle:
-                    pos: self.pos
-                    size: self.size
-            Label:
-                text: app.db.setting("store_name") or "KasirQU"
-                color: 1,1,1,1
-                font_size: "18sp"
-                bold: True
-                halign: "left"
-                valign: "middle"
-                text_size: self.size
-            Label:
-                text: "TRANSAKSI"
-                color: (1,1,1,.82)
-                font_size: "11sp"
-                bold: True
-                size_hint_x: None
-                width: dp(82)
-                halign: "right"
-                valign: "middle"
-                text_size: self.size
-
-        BoxLayout:
-            orientation: "vertical"
-            padding: [dp(12), dp(9), dp(12), dp(8)]
-            spacing: dp(8)
-
-            BoxLayout:
-                size_hint_y: None
-                height: dp(42)
-                Label:
-                    id: count
-                    text: "Transaksi (0)"
-                    color: (.08,.11,.16,1)
-                    font_size: "21sp"
-                    bold: True
-                    halign: "left"
-                    valign: "middle"
-                    text_size: self.size
-                PrimaryButton:
-                    text: "+ Buat Transaksi"
-                    size_hint_x: None
-                    width: dp(142)
-                    on_release: app.navigate("pos")
-
-            BoxLayout:
-                size_hint_y: None
-                height: dp(44)
-                spacing: dp(7)
-                TextInput:
-                    id: search
-                    hint_text: "Cari invoice / pembayaran..."
-                    multiline: False
-                    padding: [dp(12), dp(9)]
-                    background_normal: ""
-                    background_color: (1,1,1,1)
-                    foreground_color: (.08,.11,.16,1)
-                    cursor_color: (.12,.32,.78,1)
-                    on_text: root.refresh(self.text)
-                SoftButton:
-                    text: "FILTER"
-                    size_hint_x: None
-                    width: dp(82)
-                    on_release: root.refresh(self.ids.search.text)
-
-            ScrollView:
-                do_scroll_x: False
-                bar_width: dp(3)
-                GridLayout:
-                    id: list
-                    cols: 1
-                    spacing: dp(8)
-                    padding: dp(1)
-                    size_hint_y: None
-                    height: self.minimum_height
-
-<ReportScreen>:
-
-    BoxLayout:
-
-        orientation: "vertical"
-
-        padding: dp(12)
-
-        spacing: dp(10)
-
-
-        canvas.before:
-
-            Color:
-
-                rgba: (.95,.97,.99,1)
-
-            Rectangle:
-
-                pos: self.pos
-
-                size: self.size
-
-
-        ScreenTitle:
-
-            text: "Laporan"
-
-            size_hint_y: None
-
-            height: dp(52)
-
-
-        Card:
-
-            orientation: "vertical"
-
-            padding: dp(18)
-
-            size_hint_y: None
-
-            height: dp(370)
-
-
-            BoxLayout:
-
-                id: summary
-
-                orientation: "vertical"
-
-                spacing: dp(3)
-
-                size_hint_y: 1
-
-
-        BoxLayout:
-            size_hint_y: None
-            height: dp(46)
-            spacing: dp(8)
-
-            PrimaryButton:
-                text: "EXPORT PENJUALAN"
-                on_release: root.export_csv()
-
-            SoftButton:
-                text: "EXPORT STOK"
-                on_release: root.export_stock_csv()
-
-        Widget:
-
-
-<SettingsScreen>:
-    BoxLayout:
-        orientation: "vertical"
-        canvas.before:
-            Color:
-                rgba: (.95,.97,.99,1)
-            Rectangle:
-                pos: self.pos
-                size: self.size
-
-        # PROFESSIONAL APP BAR
-        BoxLayout:
-            size_hint_y: None
-            height: dp(60)
-            padding: [dp(14), 0, dp(14), 0]
-            spacing: dp(8)
-            canvas.before:
-                Color:
-                    rgba: (.10,.31,.76,1)
+                    rgba: (.06,.35,.84,1)
                 Rectangle:
                     pos: self.pos
                     size: self.size
@@ -950,67 +509,412 @@ KV = r'''
                 valign: "middle"
                 text_size: self.size
             Label:
-                text: "PENGATURAN"
+                text: "Kasir"
+                color: 1,1,1,.82
+                font_size: "10sp"
+                size_hint_x: None
+                width: dp(42)
+                halign: "right"
+                valign: "middle"
+                text_size: self.size
+        BoxLayout:
+            orientation: "vertical"
+            padding: [dp(10),dp(9),dp(10),dp(8)]
+            spacing: dp(7)
+            BoxLayout:
+                size_hint_y: None
+                height: dp(40)
+                Label:
+                    text: "Kasir"
+                    color: (.08,.11,.16,1)
+                    font_size: "21sp"
+                    bold: True
+                    halign: "left"
+                    valign: "middle"
+                    text_size: self.size
+                Label:
+                    text: ""
+            BoxLayout:
+                size_hint_y: None
+                height: dp(44)
+                spacing: dp(6)
+                OutlinedInput:
+                    id: search
+                    hint_text: "Cari produk / scan barcode..."
+                    multiline: False
+                    padding: [dp(11),dp(8)]
+                    on_text: root.refresh_products(self.text)
+                    on_text_validate: root.quick_add_by_code(self.text)
+                PrimaryButton:
+                    text: "+"
+                    size_hint_x: None
+                    width: dp(44)
+                    on_release: root.open_cart_popup()
+            Label:
+                text: "Pilih Produk"
+                color: (.40,.44,.51,1)
+                font_size: "12sp"
+                bold: True
+                size_hint_y: None
+                height: dp(20)
+                halign: "left"
+                text_size: self.size
+            ScrollView:
+                do_scroll_x: False
+                bar_width: dp(2)
+                GridLayout:
+                    id: products
+                    cols: 4
+                    spacing: dp(7)
+                    padding: [dp(1),0,dp(1),0]
+                    size_hint_y: None
+                    height: self.minimum_height
+            Card:
+                orientation: "horizontal"
+                size_hint_y: None
+                height: dp(58)
+                padding: [dp(8),dp(6)]
+                spacing: dp(7)
+                Label:
+                    id: cart_count
+                    text: "0 item"
+                    color: (.08,.11,.16,1)
+                    font_size: "11sp"
+                    bold: True
+                    size_hint_x: .27
+                    halign: "left"
+                    valign: "middle"
+                    text_size: self.size
+                Label:
+                    id: cart_total
+                    text: "Rp 0"
+                    color: (.12,.32,.78,1)
+                    font_size: "16sp"
+                    bold: True
+                    size_hint_x: .43
+                    halign: "right"
+                    valign: "middle"
+                    text_size: self.size
+                PrimaryButton:
+                    text: "KERANJANG"
+                    size_hint_x: .30
+                    on_release: root.open_cart_popup()
+
+<ProductScreen>:
+    BoxLayout:
+        orientation: "vertical"
+        spacing: 0
+        canvas.before:
+            Color:
+                rgba: (.96,.98,1,1)
+            Rectangle:
+                pos: self.pos
+                size: self.size
+        BoxLayout:
+            size_hint_y: None
+            height: dp(58)
+            padding: [dp(14),0,dp(12),0]
+            canvas.before:
+                Color:
+                    rgba: (.06,.35,.84,1)
+                Rectangle:
+                    pos: self.pos
+                    size: self.size
+            Label:
+                text: app.db.setting("store_name") or "KasirQU"
                 color: 1,1,1,1
-                font_size: "15sp"
+                font_size: "17sp"
+                bold: True
+                halign: "left"
+                valign: "middle"
+                text_size: self.size
+            Label:
+                text: "Produk"
+                color: 1,1,1,.82
+                font_size: "10sp"
+                size_hint_x: None
+                width: dp(48)
+                halign: "right"
+                valign: "middle"
+                text_size: self.size
+        BoxLayout:
+            orientation: "vertical"
+            padding: [dp(10),dp(9),dp(10),dp(8)]
+            spacing: dp(7)
+            BoxLayout:
+                size_hint_y: None
+                height: dp(40)
+                Label:
+                    id: count
+                    text: "Produk (0 Item)"
+                    color: (.08,.11,.16,1)
+                    font_size: "20sp"
+                    bold: True
+                    halign: "left"
+                    valign: "middle"
+                    text_size: self.size
+                PrimaryButton:
+                    text: "Tambah +"
+                    size_hint_x: None
+                    width: dp(105)
+                    on_release: root.open_editor()
+            BoxLayout:
+                size_hint_y: None
+                height: dp(43)
+                spacing: dp(6)
+                OutlinedInput:
+                    id: search
+                    hint_text: "Cari produk, SKU, kategori..."
+                    multiline: False
+                    padding: [dp(11),dp(8)]
+                    on_text: root.refresh(self.text, root.category_filter)
+                SoftButton:
+                    text: "FILTER"
+                    size_hint_x: None
+                    width: dp(76)
+                    on_release: root.toggle_categories()
+            ScrollView:
+                size_hint_y: None
+                height: dp(35)
+                do_scroll_y: False
+                bar_width: 0
+                GridLayout:
+                    id: categories
+                    rows: 1
+                    spacing: dp(5)
+                    size_hint_x: None
+                    width: self.minimum_width
+                    size_hint_y: None
+                    height: dp(33)
+            ScrollView:
+                do_scroll_x: False
+                bar_width: dp(2)
+                GridLayout:
+                    id: list
+                    cols: 1
+                    spacing: dp(7)
+                    padding: [dp(1),0,dp(1),0]
+                    size_hint_y: None
+                    height: self.minimum_height
+
+<TransactionScreen>:
+    BoxLayout:
+        orientation: "vertical"
+        spacing: 0
+        canvas.before:
+            Color:
+                rgba: (.96,.98,1,1)
+            Rectangle:
+                pos: self.pos
+                size: self.size
+        BoxLayout:
+            size_hint_y: None
+            height: dp(58)
+            padding: [dp(14),0,dp(12),0]
+            canvas.before:
+                Color:
+                    rgba: (.06,.35,.84,1)
+                Rectangle:
+                    pos: self.pos
+                    size: self.size
+            Label:
+                text: app.db.setting("store_name") or "KasirQU"
+                color: 1,1,1,1
+                font_size: "17sp"
+                bold: True
+                halign: "left"
+                valign: "middle"
+                text_size: self.size
+            Label:
+                text: "Transaksi"
+                color: 1,1,1,.82
+                font_size: "10sp"
+                size_hint_x: None
+                width: dp(66)
+                halign: "right"
+                valign: "middle"
+                text_size: self.size
+        BoxLayout:
+            orientation: "vertical"
+            padding: [dp(10),dp(9),dp(10),dp(8)]
+            spacing: dp(7)
+            BoxLayout:
+                size_hint_y: None
+                height: dp(40)
+                Label:
+                    id: count
+                    text: "Transaksi (0)"
+                    color: (.08,.11,.16,1)
+                    font_size: "20sp"
+                    bold: True
+                    halign: "left"
+                    valign: "middle"
+                    text_size: self.size
+                PrimaryButton:
+                    text: "+ Buat Transaksi"
+                    size_hint_x: None
+                    width: dp(130)
+                    on_release: app.navigate("pos")
+            BoxLayout:
+                size_hint_y: None
+                height: dp(43)
+                spacing: dp(6)
+                OutlinedInput:
+                    id: search
+                    hint_text: "Cari invoice / pembayaran..."
+                    multiline: False
+                    padding: [dp(11),dp(8)]
+                    on_text: root.refresh(self.text)
+                SoftButton:
+                    text: "FILTER"
+                    size_hint_x: None
+                    width: dp(76)
+                    on_release: root.refresh(self.ids.search.text)
+            ScrollView:
+                do_scroll_x: False
+                bar_width: dp(2)
+                GridLayout:
+                    id: list
+                    cols: 1
+                    spacing: dp(7)
+                    padding: [dp(1),0,dp(1),0]
+                    size_hint_y: None
+                    height: self.minimum_height
+
+<ReportScreen>:
+    BoxLayout:
+        orientation: "vertical"
+        padding: [dp(10),dp(9),dp(10),dp(8)]
+        spacing: dp(8)
+        canvas.before:
+            Color:
+                rgba: (.96,.98,1,1)
+            Rectangle:
+                pos: self.pos
+                size: self.size
+        BoxLayout:
+            size_hint_y: None
+            height: dp(42)
+            Label:
+                text: "Laporan"
+                color: (.08,.11,.16,1)
+                font_size: "21sp"
+                bold: True
+                halign: "left"
+                valign: "middle"
+                text_size: self.size
+        Card:
+            orientation: "vertical"
+            padding: dp(14)
+            size_hint_y: None
+            height: dp(370)
+            Label:
+                text: "RINGKASAN PENJUALAN"
+                color: (.40,.44,.51,1)
+                bold: True
+                font_size: "11sp"
+                size_hint_y: None
+                height: dp(24)
+                halign: "left"
+                text_size: self.size
+            BoxLayout:
+                id: summary
+                orientation: "vertical"
+                spacing: dp(2)
+        BoxLayout:
+            size_hint_y: None
+            height: dp(44)
+            spacing: dp(7)
+            PrimaryButton:
+                text: "EXPORT PENJUALAN"
+                on_release: root.export_csv()
+            SoftButton:
+                text: "EXPORT STOK"
+                on_release: root.export_stock_csv()
+        Widget:
+
+<SettingsScreen>:
+    BoxLayout:
+        orientation: "vertical"
+        canvas.before:
+            Color:
+                rgba: (.96,.98,1,1)
+            Rectangle:
+                pos: self.pos
+                size: self.size
+        BoxLayout:
+            size_hint_y: None
+            height: dp(58)
+            padding: [dp(14),0,dp(14),0]
+            canvas.before:
+                Color:
+                    rgba: (.06,.35,.84,1)
+                Rectangle:
+                    pos: self.pos
+                    size: self.size
+            Label:
+                text: app.db.setting("store_name") or "KasirQU"
+                color: 1,1,1,1
+                font_size: "17sp"
+                bold: True
+                halign: "left"
+                valign: "middle"
+                text_size: self.size
+            Label:
+                text: "Pengaturan"
+                color: 1,1,1,1
+                font_size: "14sp"
                 bold: True
                 halign: "center"
                 valign: "middle"
                 text_size: self.size
-            Widget:
-                size_hint_x: .45
-
         ScrollView:
             do_scroll_x: False
-            bar_width: dp(3)
+            bar_width: dp(2)
             BoxLayout:
                 orientation: "vertical"
-                spacing: dp(10)
-                padding: [dp(10), dp(10), dp(10), dp(14)]
+                spacing: dp(8)
+                padding: [dp(9),dp(9),dp(9),dp(12)]
                 size_hint_y: None
                 height: self.minimum_height
-
-                # MENU LAINNYA
                 Card:
                     orientation: "vertical"
                     size_hint_y: None
-                    height: dp(112)
-                    padding: dp(12)
-                    spacing: dp(8)
+                    height: dp(102)
+                    padding: dp(10)
+                    spacing: dp(7)
                     Label:
                         text: "MENU LAINNYA"
                         color: (.40,.44,.51,1)
                         bold: True
-                        font_size: "12sp"
+                        font_size: "11sp"
                         size_hint_y: None
-                        height: dp(20)
+                        height: dp(18)
                         halign: "left"
                         text_size: self.size
                     BoxLayout:
                         size_hint_y: None
-                        height: dp(48)
-                        spacing: dp(8)
+                        height: dp(43)
+                        spacing: dp(7)
                         OutlineButton:
-                            text: "RIWAYAT TRANSAKSI   ›"
+                            text: "RIWAYAT TRANSAKSI   >"
                             on_release: root.open_transactions()
                         OutlineButton:
-                            text: "LAPORAN   ›"
+                            text: "LAPORAN   >"
                             on_release: root.open_reports()
-
-                # TOKO & STRUK
                 Card:
                     orientation: "vertical"
                     size_hint_y: None
-                    height: dp(270)
-                    padding: dp(12)
-                    spacing: dp(7)
+                    height: dp(252)
+                    padding: dp(10)
+                    spacing: dp(6)
                     Label:
                         text: "TOKO & STRUK"
                         color: (.40,.44,.51,1)
                         bold: True
-                        font_size: "12sp"
+                        font_size: "11sp"
                         size_hint_y: None
-                        height: dp(20)
+                        height: dp(18)
                         halign: "left"
                         text_size: self.size
                     OutlinedInput:
@@ -1018,30 +922,27 @@ KV = r'''
                         hint_text: "Nama toko"
                         multiline: False
                         size_hint_y: None
-                        height: dp(42)
-                        padding: [dp(12),dp(9)]
+                        height: dp(40)
                     OutlinedInput:
                         id: address
                         hint_text: "Alamat / kontak"
                         multiline: False
                         size_hint_y: None
-                        height: dp(42)
-                        padding: [dp(12),dp(9)]
+                        height: dp(40)
                     OutlinedInput:
                         id: footer
                         hint_text: "Footer struk"
                         multiline: False
                         size_hint_y: None
-                        height: dp(42)
-                        padding: [dp(12),dp(9)]
+                        height: dp(40)
                     BoxLayout:
                         size_hint_y: None
-                        height: dp(92)
-                        spacing: dp(9)
+                        height: dp(76)
+                        spacing: dp(7)
                         Card:
                             size_hint_x: None
-                            width: dp(82)
-                            padding: dp(5)
+                            width: dp(70)
+                            padding: dp(4)
                             Image:
                                 id: receipt_logo_preview
                                 source: ""
@@ -1049,68 +950,64 @@ KV = r'''
                                 keep_ratio: True
                         BoxLayout:
                             orientation: "vertical"
-                            spacing: dp(5)
+                            spacing: dp(4)
                             Label:
                                 id: logo_status
                                 text: "Logo struk: belum dipilih"
                                 color: (.40,.44,.51,1)
-                                font_size: "10sp"
+                                font_size: "9sp"
                                 halign: "left"
                                 valign: "middle"
                                 text_size: self.size
                             BoxLayout:
                                 size_hint_y: None
-                                height: dp(38)
-                                spacing: dp(7)
+                                height: dp(36)
+                                spacing: dp(6)
                                 PrimaryButton:
-                                    text: "+ PILIH LOGO"
+                                    text: "+ LOGO"
                                     on_release: root.choose_receipt_logo()
                                 IconActionButton:
                                     icon_type: "trash"
                                     danger: True
                                     on_release: root.remove_receipt_logo()
-
-                # PEMBAYARAN
                 Card:
                     orientation: "vertical"
                     size_hint_y: None
                     height: self.minimum_height
-                    padding: dp(12)
-                    spacing: dp(8)
+                    padding: dp(10)
+                    spacing: dp(7)
                     Label:
                         text: "PEMBAYARAN"
                         color: (.40,.44,.51,1)
                         bold: True
-                        font_size: "12sp"
+                        font_size: "11sp"
                         size_hint_y: None
-                        height: dp(20)
+                        height: dp(18)
                         halign: "left"
                         text_size: self.size
-
-                    # QRIS CARD
                     Card:
                         orientation: "vertical"
                         size_hint_y: None
-                        height: dp(205)
-                        padding: dp(10)
-                        spacing: dp(7)
+                        height: dp(185)
+                        padding: dp(9)
+                        spacing: dp(6)
                         Label:
                             text: "QRIS"
                             color: (.08,.11,.16,1)
                             bold: True
-                            font_size: "12sp"
+                            font_size: "11sp"
                             size_hint_y: None
                             height: dp(18)
                             halign: "left"
                             text_size: self.size
                         BoxLayout:
                             size_hint_y: None
-                            height: dp(112)
-                            spacing: dp(10)
+                            height: dp(105)
+                            spacing: dp(7)
                             Card:
                                 size_hint_x: None
-                                width: dp(112)
-                                padding: dp(5)
+                                width: dp(105)
+                                padding: dp(4)
                                 Image:
                                     id: qris_preview
                                     source: ""
@@ -1124,26 +1021,26 @@ KV = r'''
                                     text: "QRIS: belum dipasang"
                                     color: (.08,.55,.30,1)
                                     bold: True
-                                    font_size: "11sp"
+                                    font_size: "10sp"
                                     size_hint_y: None
-                                    height: dp(20)
+                                    height: dp(18)
                                     halign: "left"
                                     text_size: self.size
                                 Label:
-                                    text: "QRIS digunakan pada pembayaran dan konfirmasi pesanan."
+                                    text: "QRIS digunakan saat pembayaran."
                                     color: (.40,.44,.51,1)
-                                    font_size: "10sp"
+                                    font_size: "9sp"
                                     size_hint_y: None
-                                    height: dp(32)
+                                    height: dp(28)
                                     halign: "left"
                                     valign: "middle"
                                     text_size: self.size
                                 BoxLayout:
                                     size_hint_y: None
-                                    height: dp(38)
-                                    spacing: dp(7)
+                                    height: dp(36)
+                                    spacing: dp(6)
                                     PrimaryButton:
-                                        text: "+ PILIH QRIS"
+                                        text: "+ QRIS"
                                         on_release: root.choose_qris()
                                     IconActionButton:
                                         icon_type: "trash"
@@ -1154,27 +1051,23 @@ KV = r'''
                             hint_text: "Instruksi QRIS"
                             multiline: False
                             size_hint_y: None
-                            height: dp(40)
-                            padding: [dp(10),dp(8)]
-
-                    # BANK
+                            height: dp(38)
                     BoxLayout:
                         size_hint_y: None
-                        height: dp(38)
-                        spacing: dp(8)
+                        height: dp(34)
                         Label:
                             text: "TRANSFER BANK"
                             color: (.08,.11,.16,1)
                             bold: True
-                            font_size: "12sp"
+                            font_size: "11sp"
                             halign: "left"
                             valign: "middle"
                             text_size: self.size
                         PrimaryButton:
-                            text: "+ TAMBAH REKENING"
+                            text: "+ TAMBAH"
                             size_hint_x: None
-                            width: dp(164)
-                            height: dp(36)
+                            width: dp(105)
+                            height: dp(34)
                             on_release: root.add_bank_account()
                     GridLayout:
                         id: bank_accounts
@@ -1182,25 +1075,22 @@ KV = r'''
                         spacing: dp(5)
                         size_hint_y: None
                         height: self.minimum_height
-
-                    # E-WALLET
                     BoxLayout:
                         size_hint_y: None
-                        height: dp(38)
-                        spacing: dp(8)
+                        height: dp(34)
                         Label:
                             text: "E-WALLET"
                             color: (.08,.11,.16,1)
                             bold: True
-                            font_size: "12sp"
+                            font_size: "11sp"
                             halign: "left"
                             valign: "middle"
                             text_size: self.size
                         PrimaryButton:
-                            text: "+ TAMBAH E-WALLET"
+                            text: "+ TAMBAH"
                             size_hint_x: None
-                            width: dp(164)
-                            height: dp(36)
+                            width: dp(105)
+                            height: dp(34)
                             on_release: root.add_wallet_account()
                     GridLayout:
                         id: wallet_accounts
@@ -1208,100 +1098,94 @@ KV = r'''
                         spacing: dp(5)
                         size_hint_y: None
                         height: self.minimum_height
-
-                # OPERASIONAL
                 Card:
                     orientation: "vertical"
                     size_hint_y: None
-                    height: dp(212)
-                    padding: dp(12)
-                    spacing: dp(7)
+                    height: dp(170)
+                    padding: dp(10)
+                    spacing: dp(6)
                     Label:
                         text: "OPERASIONAL"
                         color: (.40,.44,.51,1)
                         bold: True
-                        font_size: "12sp"
+                        font_size: "11sp"
                         size_hint_y: None
-                        height: dp(20)
+                        height: dp(18)
                         halign: "left"
                         text_size: self.size
                     BoxLayout:
                         size_hint_y: None
-                        height: dp(42)
-                        spacing: dp(8)
+                        height: dp(40)
+                        spacing: dp(6)
                         OutlinedInput:
                             id: cashier
                             hint_text: "Nama kasir"
                             multiline: False
-                            padding: [dp(12),dp(9)]
                         Spinner:
                             id: role
                             text: "Owner"
                             values: ["Owner","Admin","Kasir"]
                             size_hint_x: None
-                            width: dp(120)
+                            width: dp(112)
                     BoxLayout:
                         size_hint_y: None
-                        height: dp(42)
-                        spacing: dp(8)
+                        height: dp(40)
+                        spacing: dp(6)
                         OutlinedInput:
                             id: tax
                             hint_text: "Pajak (%)"
                             input_filter: "float"
                             multiline: False
-                            padding: [dp(10),dp(9)]
                         OutlinedInput:
                             id: low_stock
-                            hint_text: "Batas stok menipis"
+                            hint_text: "Batas stok"
                             input_filter: "float"
                             multiline: False
-                            padding: [dp(10),dp(9)]
                     BoxLayout:
                         size_hint_y: None
-                        height: dp(42)
-                        spacing: dp(8)
+                        height: dp(40)
+                        spacing: dp(6)
                         Spinner:
                             id: paper
                             text: "58mm"
-                            values: ["58mm", "80mm"]
+                            values: ["58mm","80mm"]
                             size_hint_x: None
-                            width: dp(120)
+                            width: dp(112)
                         PrimaryButton:
-                            text: "SIMPAN PENGATURAN"
+                            text: "SIMPAN"
                             on_release: root.save()
                         SoftButton:
                             text: "REFRESH"
                             on_release: root.on_enter()
-
-                # PRINTER
                 Card:
                     orientation: "vertical"
                     size_hint_y: None
-                    height: dp(174)
-                    padding: dp(12)
-                    spacing: dp(7)
+                    height: dp(155)
+                    padding: dp(10)
+                    spacing: dp(6)
                     Label:
                         text: "PRINTER BLUETOOTH"
                         color: (.40,.44,.51,1)
                         bold: True
-                        font_size: "12sp"
+                        font_size: "11sp"
                         size_hint_y: None
-                        height: dp(20)
+                        height: dp(18)
                         halign: "left"
                         text_size: self.size
                     Label:
                         id: printer_status
                         text: "Printer: belum dipilih"
                         color: (.08,.11,.16,1)
+                        font_size: "11sp"
                         size_hint_y: None
-                        height: dp(28)
+                        height: dp(26)
                         halign: "left"
                         valign: "middle"
                         text_size: self.size
                     BoxLayout:
                         size_hint_y: None
-                        height: dp(42)
-                        spacing: dp(8)
+                        height: dp(40)
+                        spacing: dp(6)
                         PrimaryButton:
                             text: "PILIH PRINTER"
                             on_release: root.open_printer()
@@ -1311,33 +1195,31 @@ KV = r'''
                     Label:
                         text: "Printer dipilih sekali untuk transaksi dan cetak ulang."
                         color: (.40,.44,.51,1)
-                        font_size: "10sp"
+                        font_size: "9sp"
                         size_hint_y: None
-                        height: dp(28)
+                        height: dp(25)
                         halign: "left"
                         valign: "middle"
                         text_size: self.size
-
-                # DATA
                 Card:
                     orientation: "vertical"
                     size_hint_y: None
-                    height: dp(132)
-                    padding: dp(12)
-                    spacing: dp(7)
+                    height: dp(105)
+                    padding: dp(10)
+                    spacing: dp(6)
                     Label:
                         text: "DATA & KEAMANAN"
                         color: (.40,.44,.51,1)
                         bold: True
-                        font_size: "12sp"
+                        font_size: "11sp"
                         size_hint_y: None
-                        height: dp(20)
+                        height: dp(18)
                         halign: "left"
                         text_size: self.size
                     BoxLayout:
                         size_hint_y: None
-                        height: dp(42)
-                        spacing: dp(8)
+                        height: dp(40)
+                        spacing: dp(6)
                         SoftButton:
                             text: "BACKUP DATABASE"
                             on_release: root.backup()
@@ -1346,79 +1228,38 @@ KV = r'''
                             on_release: root.check_database()
 
 BoxLayout:
-
     orientation: "vertical"
-
-
     SwipeManager:
-
         id: sm
-
-
         POSScreen:
-
             name: "pos"
-
-
         ProductScreen:
-
             name: "products"
-
-
         TransactionScreen:
-
             name: "transactions"
-
-
         ReportScreen:
-
             name: "reports"
-
-
         SettingsScreen:
-
             name: "settings"
-
-
     BoxLayout:
-
         size_hint_y: None
-
-        height: dp(60)
-
-        padding: [dp(8), 0, dp(8), 0]
-
-        spacing: dp(4)
-
+        height: dp(58)
+        padding: [dp(7),0,dp(7),0]
+        spacing: dp(3)
         canvas.before:
-
             Color:
-
-                rgba: (1,1,1,1)
-
+                rgba: 1,1,1,1
             Rectangle:
-
                 pos: self.pos
-
                 size: self.size
-
-
         IconNavButton:
-
             nav_name: "pos"
-
             label_text: "Kasir"
-
         IconNavButton:
-
             nav_name: "products"
-
             label_text: "Produk"
-
         IconNavButton:
-
             nav_name: "settings"
-
             label_text: "Pengaturan"
 '''
 
